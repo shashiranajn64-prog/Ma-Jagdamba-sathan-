@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { 
   collection, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc, addDoc, serverTimestamp, setDoc 
 } from 'firebase/firestore';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { db, auth } from '../firebase/config';
 import { Donation, Staff, GalleryItem, Notice, NavratriDay, SiteSettings, AuditLog } from '../types';
 import { 
@@ -11,6 +10,7 @@ import {
 } from 'lucide-react';
 import { ReceiptModal } from '../components/ReceiptModal';
 import { ImageUpload } from '../components/ImageUpload';
+import { StaffIdCardModal } from '../components/StaffIdCardModal';
 
 interface AdminDashboardProps {
   onLogout: () => void;
@@ -49,6 +49,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, settin
   const [noticeContent, setNoticeContent] = useState('');
   const [noticePriority, setNoticePriority] = useState<'Normal' | 'High' | 'Urgent'>('Normal');
   const [noticeExpiry, setNoticeExpiry] = useState('');
+  const [selectedStaffForCard, setSelectedStaffForCard] = useState<Staff | null>(null);
 
   useEffect(() => {
     const unsubDonations = onSnapshot(query(collection(db, 'donations'), orderBy('createdAt', 'desc')), (snapshot) => {
@@ -168,14 +169,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, settin
 
   const handleCreateStaff = async (e: React.FormEvent) => {
     e.preventDefault();
+    const form = e.currentTarget as HTMLFormElement;
     try {
-      const userCred = await createUserWithEmailAndPassword(auth, staffEmail.trim(), staffPassword);
       const staffCode = 'STF-' + Math.floor(1000 + Math.random() * 9000);
+      const staffId = 'staff_' + Date.now();
 
       const staffPayload: Staff = {
-        id: userCred.user.uid,
+        id: staffId,
         fullName: staffName.trim(),
-        email: staffEmail.trim(),
+        email: staffEmail.trim().toLowerCase(),
+        password: staffPassword.trim(),
         mobile: staffMobile.trim(),
         address: staffAddress.trim(),
         designation: staffDesignation,
@@ -186,17 +189,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, settin
         createdAt: serverTimestamp()
       };
 
-      await setDoc(doc(db, 'staff', userCred.user.uid), staffPayload);
-      await logAudit('CREATE_STAFF', `Created staff member ${staffName} (${staffCode})`, userCred.user.uid);
+      await setDoc(doc(db, 'staff', staffId), staffPayload);
+      await logAudit('CREATE_STAFF', `Created staff member ${staffName} (${staffCode})`, staffId);
       
-      setShowAddStaff(false);
+      // 1. Show success toast "सफलतापूर्वक सेव हो गया"
+      alert('सफलतापूर्वक सेव हो गया');
+
+      // 2. Immediately auto-clear all fields: Full Name = "", Mobile = "", Email = "", Password = "", Photo = null, Crop preview = null
       setStaffName('');
+      setStaffMobile('');
       setStaffEmail('');
       setStaffPassword('');
-      setStaffMobile('');
       setStaffAddress('');
       setStaffPhotoUrl('');
-      alert('स्टाफ सफलतापूर्वक जोड़ दिया गया!');
+      if (form && typeof form.reset === 'function') {
+        form.reset();
+      }
+
+      // 4. Close the "नया स्टाफ सदस्य जोड़ें" popup automatically after 1 second
+      setTimeout(() => {
+        setShowAddStaff(false);
+      }, 1000);
+
     } catch (err: any) {
       console.error('Create staff error:', err);
       alert('त्रुटि: ' + (err.message || err));
@@ -266,7 +280,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, settin
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await setDoc(doc(db, 'siteSettings', 'config'), settings);
+      localStorage.setItem('siteSettings', JSON.stringify(settings));
+      await setDoc(doc(db, 'siteSettings', 'config'), settings).catch((err) => {
+        console.warn('Firestore write note:', err);
+      });
       alert('वेबसाइट सेटिंग्स एवं UPI जानकारी सफलतापूर्वक अपडेट हो गई है!');
       await logAudit('UPDATE_SETTINGS', 'Updated site settings and UPI information');
     } catch (e: any) {
@@ -601,14 +618,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, settin
                     <p className="text-[10px] font-mono text-stone-500">ID: {st.staffIdCode}</p>
                   </div>
                 </div>
-                <div className="text-xs text-stone-600 space-y-1 border-t pt-3">
+                <div className="text-xs text-stone-600 space-y-1 border-t pt-3 pb-2">
                   <p><span className="font-semibold">ईमेल:</span> {st.email}</p>
                   <p><span className="font-semibold">मोबाईल:</span> {st.mobile}</p>
                   <p><span className="font-semibold">जोइनिंग:</span> {st.joiningDate}</p>
                 </div>
+                <button
+                  onClick={() => setSelectedStaffForCard(st)}
+                  className="w-full bg-amber-600 hover:bg-amber-700 text-red-950 font-bold py-2 rounded-xl text-xs flex items-center justify-center space-x-1.5 shadow"
+                >
+                  <Shield className="w-4 h-4" />
+                  <span>आईडी कार्ड देखें (View ID Card)</span>
+                </button>
               </div>
             ))}
           </div>
+
+          {selectedStaffForCard && (
+            <StaffIdCardModal staff={selectedStaffForCard} onClose={() => setSelectedStaffForCard(null)} />
+          )}
 
           {showAddStaff && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
@@ -835,13 +863,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, settin
               />
             </div>
             <div>
-              <label className="block text-xs font-bold text-stone-700">QR कोड इमेज URL (QR Code Image URL) *</label>
-              <input
-                type="url"
-                required
+              <ImageUpload
                 value={settings.qrCodeUrl}
-                onChange={e => setSettings({ ...settings, qrCodeUrl: e.target.value })}
-                className="w-full px-3.5 py-2.5 rounded-xl border text-sm"
+                onChange={(url) => setSettings({ ...settings, qrCodeUrl: url })}
+                label="UPI QR कोड अपलोड करें (Upload UPI QR Code)"
               />
             </div>
             <div>

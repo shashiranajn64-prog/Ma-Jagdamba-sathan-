@@ -4,6 +4,7 @@ import { db } from '../firebase/config';
 import { Staff, Donation, GalleryItem } from '../types';
 import { UserCheck, PlusCircle, Image as ImageIcon, FileText, LogOut, CheckCircle2, QrCode } from 'lucide-react';
 import { ImageUpload } from '../components/ImageUpload';
+import { StaffIdCardModal } from '../components/StaffIdCardModal';
 
 interface StaffDashboardProps {
   staffData: Staff;
@@ -13,6 +14,7 @@ interface StaffDashboardProps {
 export const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffData, onLogout }) => {
   const [activeTab, setActiveTab] = useState<'donations' | 'gallery' | 'profile'>('donations');
   const [donations, setDonations] = useState<Donation[]>([]);
+  const [showIdCard, setShowIdCard] = useState(false);
   
   const [donorName, setDonorName] = useState('');
   const [mobile, setMobile] = useState('');
@@ -123,14 +125,27 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffData, onLog
           </div>
         </div>
 
-        <button
-          onClick={onLogout}
-          className="bg-red-900 hover:bg-red-800 text-amber-200 px-4 py-2 rounded-xl text-sm font-semibold flex items-center space-x-2 border border-amber-400 transition"
-        >
-          <LogOut className="w-4 h-4" />
-          <span>लॉग आउट (Sign Out)</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={() => setShowIdCard(true)}
+            className="bg-amber-500 hover:bg-amber-600 text-red-950 px-4 py-2 rounded-xl text-sm font-bold flex items-center space-x-2 shadow transition"
+          >
+            <UserCheck className="w-4 h-4" />
+            <span>मेरा पहचान पत्र देखें (View ID Card)</span>
+          </button>
+          <button
+            onClick={onLogout}
+            className="bg-red-900 hover:bg-red-800 text-amber-200 px-4 py-2 rounded-xl text-sm font-semibold flex items-center space-x-2 border border-amber-400 transition"
+          >
+            <LogOut className="w-4 h-4" />
+            <span>लॉग आउट (Sign Out)</span>
+          </button>
+        </div>
       </div>
+
+      {showIdCard && (
+        <StaffIdCardModal staff={staffData} onClose={() => setShowIdCard(false)} />
+      )}
 
       <div className="flex border-b border-stone-200 space-x-4">
         <button

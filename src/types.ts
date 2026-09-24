@@ -35,6 +35,7 @@ export interface Staff {
   joiningDate: string;
   staffIdCode: string;
   email: string;
+  password?: string;
   isActive: boolean;
   createdAt: any;
 }

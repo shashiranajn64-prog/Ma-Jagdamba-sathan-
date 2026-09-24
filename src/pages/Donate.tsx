@@ -58,6 +58,7 @@ export const Donate: React.FC<DonateProps> = ({ settings }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    const form = e.currentTarget as HTMLFormElement;
 
     if (!donorName.trim()) {
       setError('कृपया दान कर्ता का पूरा नाम दर्ज करें।');
@@ -109,6 +110,20 @@ export const Donate: React.FC<DonateProps> = ({ settings }) => {
 
       const docRef1 = await addDoc(collection(db, 'onlineDonations'), donationData).catch(() => null);
       const docRef2 = await addDoc(collection(db, 'donations'), donationData);
+
+      // 1. Show success toast "सफलतापूर्वक सेव हो गया"
+      alert('सफलतापूर्वक सेव हो गया');
+
+      // 2. Immediately auto-clear all fields: Full Name = "", Mobile = "", Email = "", Password = "", Photo = null, Crop preview = null
+      setDonorName('');
+      setMobile('');
+      setEmail('');
+      setAmount(501);
+      setProofFile(null);
+      setProofPreview(null);
+      if (form && typeof form.reset === 'function') {
+        form.reset();
+      }
 
       setSuccessDonationId(docRef2.id || docRef1?.id || 'DON-' + Math.floor(100000 + Math.random() * 900000));
       setSubmitting(false);

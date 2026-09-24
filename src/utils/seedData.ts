@@ -166,9 +166,10 @@ export async function initializeDatabaseDefaults() {
     const navratriCol = collection(db, 'navratri');
     const navratriSnap = await getDocs(navratriCol).catch(() => null);
     
-    // Always update or set navratri docs to ensure katha, mantra, and pujanVidhi exist
-    for (const day of defaultNavratriDays) {
-      await setDoc(doc(db, 'navratri', `day_${day.dayNumber}`), day, { merge: true }).catch(() => {});
+    if (!navratriSnap || navratriSnap.empty) {
+      for (const day of defaultNavratriDays) {
+        await setDoc(doc(db, 'navratri', `day_${day.dayNumber}`), day).catch(() => {});
+      }
     }
 
     const noticesCol = collection(db, 'notices');

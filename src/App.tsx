@@ -24,13 +24,23 @@ export default function App() {
   useEffect(() => {
     initializeDatabaseDefaults();
 
+    // Load local settings first for instant publishing update persistence
+    const localSettings = localStorage.getItem('siteSettings');
+    if (localSettings) {
+      try {
+        setSettings(JSON.parse(localSettings));
+      } catch (e) {}
+    }
+
     const unsubscribe = onSnapshot(doc(db, 'siteSettings', 'config'), (docSnap) => {
       if (docSnap.exists()) {
-        setSettings(docSnap.data() as SiteSettings);
+        const data = docSnap.data() as SiteSettings;
+        setSettings(data);
+        localStorage.setItem('siteSettings', JSON.stringify(data));
       }
       setLoading(false);
     }, (error) => {
-      console.error('Settings snapshot error:', error);
+      console.warn('Settings snapshot offline/error:', error);
       setLoading(false);
     });
 
