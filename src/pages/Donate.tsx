@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, getDocs, doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../firebase/config';
 import { SiteSettings } from '../types';
@@ -94,6 +94,23 @@ export const Donate: React.FC<DonateProps> = ({ settings }) => {
         proofUrl = proofPreview;
       }
 
+      const querySnapshot = await getDocs(collection(db, 'donations'));
+      let maxSeq = 0;
+      querySnapshot.forEach((docSnap) => {
+        const dData = docSnap.data();
+        const rNum = dData.receiptNumber;
+        if (rNum && typeof rNum === 'string') {
+          const match = rNum.match(/MJS-(\d+)/i);
+          if (match) {
+            const num = parseInt(match[1], 10);
+            if (!isNaN(num) && num > maxSeq) maxSeq = num;
+          }
+        }
+      });
+      const nextSeq = maxSeq + 1;
+      const receiptNumber = `MJS-${String(nextSeq).padStart(2, '0')}`;
+      const donationId = `mjs-2026${String(nextSeq).padStart(2, '0')}`;
+
       const donationData = {
         donorName: donorName.trim(),
         mobile: mobile.trim(),
@@ -104,12 +121,13 @@ export const Donate: React.FC<DonateProps> = ({ settings }) => {
         purpose,
         paymentProofUrl: proofUrl,
         status: 'Pending',
+        receiptNumber,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       };
 
-      const docRef1 = await addDoc(collection(db, 'onlineDonations'), donationData).catch(() => null);
-      const docRef2 = await addDoc(collection(db, 'donations'), donationData);
+      await setDoc(doc(db, 'donations', donationId), donationData);
+      await setDoc(doc(db, 'onlineDonations', donationId), donationData).catch(() => null);
 
       // 1. Show success toast "सफलतापूर्वक सेव हो गया"
       alert('सफलतापूर्वक सेव हो गया');
@@ -125,7 +143,7 @@ export const Donate: React.FC<DonateProps> = ({ settings }) => {
         form.reset();
       }
 
-      setSuccessDonationId(docRef2.id || docRef1?.id || 'DON-' + Math.floor(100000 + Math.random() * 900000));
+      setSuccessDonationId(donationId);
       setSubmitting(false);
     } catch (err: any) {
       console.error('Donation submission error:', err);

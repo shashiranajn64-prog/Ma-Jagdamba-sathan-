@@ -171,7 +171,7 @@ export const Navratri: React.FC = () => {
 
                     <div>
                       <h2 className="text-3xl font-bold font-serif text-amber-200">{day.deviName}</h2>
-                      <p className="text-xs text-amber-100/80">माँ जगदंबा स्थान मुज़फ़्फ़रपुर</p>
+                      <p className="text-xs text-amber-100/80">माँ जगदम्बा स्थान, मथुरापुर, मुजफ्फरपुर, 843119</p>
                     </div>
                   </div>
                 </div>

@@ -7,17 +7,17 @@ export const defaultSiteSettings: SiteSettings = {
   heroHeading: 'शक्तिपीठ माँ जगदंबा स्थान, मुज़फ़्फ़रपुर',
   heroDescription: 'माँ जगदंबा के इस पावन दरबार में आपका स्वागत है। यहाँ माता के दर्शन मात्र से सभी मनोकामनाएं पूर्ण होती हैं।',
   heroImageUrl: 'https://images.unsplash.com/photo-1609137144881-55010dd21775?auto=format&fit=crop&w=1920&q=80',
-  aboutText: 'माँ जगदंबा स्थान बिहार के मुज़फ़्फ़रपुर में स्थित एक जागृत और ऐतिहासिक शक्तिपीठ है। यहाँ चैत्र और शारदीय नवरात्रि में लाखों श्रद्धालु माता के दर्शन हेतु आते हैं।',
-  address: 'माँ जगदंबा स्थान मंदिर परिसर, मुज़फ़्फ़रपुर, बिहार - 842001',
+  aboutText: 'माँ जगदम्बा स्थान, मथुरापुर, मुजफ्फरपुर, 843119 में स्थित एक जागृत और ऐतिहासिक शक्तिपीठ है। यहाँ चैत्र और शारदीय नवरात्रि में लाखों श्रद्धालु माता के दर्शन हेतु आते हैं।',
+  address: 'माँ जगदम्बा स्थान, मथुरापुर, मुजफ्फरपुर, 843119',
   contactNumber: '+91 98765 43210',
-  email: 'contact@maajagdambasthan.org',
+  email: 'majagdambastha.mathurapur@gmail.com',
   socialLinks: {
     facebook: 'https://facebook.com',
     youtube: 'https://youtube.com',
     instagram: 'https://instagram.com',
     whatsapp: 'https://whatsapp.com'
   },
-  footerText: 'सर्वाधिकार सुरक्षित © 2026 माँ जगदंबा स्थान ट्रस्ट, मुज़फ़्फ़रपुर',
+  footerText: 'सर्वाधिकार सुरक्षित © 2026 माँ जगदंबा स्थान ट्रस्ट, मथुरापुर, मुजफ्फरपुर, 843119',
   upiId: 'maajagdamba@okhdfcbank',
   upiName: 'Maa Jagdamba Sthan Trust',
   qrCodeUrl: '',
@@ -166,9 +166,14 @@ export async function initializeDatabaseDefaults() {
     const navratriCol = collection(db, 'navratri');
     const navratriSnap = await getDocs(navratriCol).catch(() => null);
     
-    if (!navratriSnap || navratriSnap.empty) {
+    if (!navratriSnap || navratriSnap.empty || navratriSnap.size < 9) {
       for (const day of defaultNavratriDays) {
-        await setDoc(doc(db, 'navratri', `day_${day.dayNumber}`), day).catch(() => {});
+        await setDoc(doc(db, 'navratri', `day_${day.dayNumber}`), day, { merge: true }).catch(() => {});
+      }
+    } else {
+      // Ensure existing days have complete katha/mantra/pujanVidhi if missing
+      for (const day of defaultNavratriDays) {
+        await setDoc(doc(db, 'navratri', `day_${day.dayNumber}`), day, { merge: true }).catch(() => {});
       }
     }
 

@@ -24,14 +24,6 @@ export default function App() {
   useEffect(() => {
     initializeDatabaseDefaults();
 
-    // Load local settings first for instant publishing update persistence
-    const localSettings = localStorage.getItem('siteSettings');
-    if (localSettings) {
-      try {
-        setSettings(JSON.parse(localSettings));
-      } catch (e) {}
-    }
-
     const unsubscribe = onSnapshot(doc(db, 'siteSettings', 'config'), (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data() as SiteSettings;
@@ -88,13 +80,13 @@ export default function App() {
 
         {currentTab === 'staff-login' && (
           userRole === 'staff' ? (
-            <StaffDashboard staffData={staffData} onLogout={() => setUserRole(null)} />
+            <StaffDashboard staffData={staffData} settings={settings} onLogout={() => setUserRole(null)} />
           ) : (
             <StaffLogin onLoginSuccess={(role, data) => { setUserRole(role); setStaffData(data); setCurrentTab('staff-dashboard'); }} />
           )
         )}
         {currentTab === 'staff-dashboard' && staffData && (
-          <StaffDashboard staffData={staffData} onLogout={() => { setUserRole(null); setStaffData(null); setCurrentTab('home'); }} />
+          <StaffDashboard staffData={staffData} settings={settings} onLogout={() => { setUserRole(null); setStaffData(null); setCurrentTab('home'); }} />
         )}
       </main>
 

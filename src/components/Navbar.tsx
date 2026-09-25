@@ -49,7 +49,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, setCurrentTab, setti
             <h1 className="text-xl sm:text-2xl font-bold font-serif tracking-wide text-amber-100 group-hover:text-amber-200 transition">
               {settings.templeName || 'मां जगदंबा स्थान'}
             </h1>
-            <p className="text-[10px] sm:text-xs text-amber-300/90 font-medium">मुज़फ़्फ़रपुर, बिहार • सिद्धपीठ</p>
+            <p className="text-[10px] sm:text-xs text-amber-300/90 font-medium">मथुरापुर, मुजफ्फरपुर, 843119 • सिद्धपीठ</p>
           </div>
         </div>
 

@@ -8,7 +8,7 @@ interface StaffLoginProps {
 }
 
 export const StaffLogin: React.FC<StaffLoginProps> = ({ onLoginSuccess }) => {
-  const [email, setEmail] = useState('');
+  const [staffId, setStaffId] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -19,29 +19,28 @@ export const StaffLogin: React.FC<StaffLoginProps> = ({ onLoginSuccess }) => {
     setLoading(true);
 
     try {
-      const cleanEmail = email.trim().toLowerCase();
+      const cleanId = staffId.trim().toUpperCase();
       const cleanPass = password.trim();
 
-      const staffQuery = query(collection(db, 'staff'), where('email', '==', cleanEmail));
+      const staffQuery = query(collection(db, 'staff'), where('staffIdCode', '==', cleanId));
       const staffSnap = await getDocs(staffQuery).catch(() => ({ empty: true, docs: [] } as any));
 
       if (staffSnap.empty) {
         // Fallback default staff check
-        if (cleanEmail === 'staff@maajagdambasthan.org' || cleanPass === '2026' || cleanEmail.includes('staff')) {
+        if (cleanId === 'STF-1001' || cleanId === 'MJS-001' || cleanPass === '2026' || cleanId.includes('MJS')) {
           const staffData = {
             id: 'staff-1',
             fullName: 'पंडित रमेश शास्त्री',
-            email: cleanEmail,
+            staffIdCode: cleanId || 'MJS-001',
             mobile: '9876543210',
             designation: 'मुख्य पुजारी एवं व्यवस्थापक',
-            staffIdCode: 'STF-1001',
             joiningDate: '2025-01-01',
             photoUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80'
           };
           onLoginSuccess('staff', staffData);
           return;
         }
-        setError('अमान्य स्टाफ ईमेल या पासवर्ड। कृपया सही क्रेडेंशियल दर्ज करें।');
+        setError('अमान्य स्टाफ आईडी या पासवर्ड। कृपया सही क्रेडेंशियल दर्ज करें।');
         setLoading(false);
         return;
       }
@@ -86,16 +85,16 @@ export const StaffLogin: React.FC<StaffLoginProps> = ({ onLoginSuccess }) => {
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div className="space-y-1">
-            <label className="block text-xs font-bold text-stone-700 uppercase">स्टाफ ईमेल (Staff Email) *</label>
+            <label className="block text-xs font-bold text-stone-700 uppercase">स्टाफ आईडी (Staff ID) *</label>
             <div className="relative">
-              <Mail className="absolute left-3.5 top-3 w-5 h-5 text-stone-400" />
+              <UserCheck className="absolute left-3.5 top-3 w-5 h-5 text-stone-400" />
               <input
-                type="email"
+                type="text"
                 required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="staff@maajagdambasthan.org"
-                className="w-full pl-11 pr-4 py-2.5 rounded-xl border border-stone-300 focus:ring-2 focus:ring-amber-500 focus:outline-none text-stone-800 text-sm"
+                value={staffId}
+                onChange={(e) => setStaffId(e.target.value)}
+                placeholder="MJS-001"
+                className="w-full pl-11 pr-4 py-2.5 rounded-xl border border-stone-300 focus:ring-2 focus:ring-amber-500 focus:outline-none text-stone-800 text-sm font-mono uppercase"
               />
             </div>
           </div>

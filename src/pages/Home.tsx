@@ -56,7 +56,7 @@ export const Home: React.FC<HomeProps> = ({ settings, setCurrentTab }) => {
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 lg:py-28 text-center space-y-6">
           <div className="inline-flex items-center space-x-2 bg-amber-500/20 border border-amber-400/50 px-4 py-1.5 rounded-full text-amber-200 text-sm font-semibold backdrop-blur-sm shadow-md animate-bounce">
             <Sparkles className="w-4 h-4 text-amber-300" />
-            <span>सिद्धपीठ माँ जगदंबा स्थान, मुज़फ़्फ़रपुर</span>
+            <span>सिद्धपीठ माँ जगदम्बा स्थान, मथुरापुर, मुजफ्फरपुर, 843119</span>
           </div>
 
           <h1 className="text-3xl sm:text-5xl lg:text-6xl font-bold font-serif tracking-wide text-amber-100 drop-shadow-md">

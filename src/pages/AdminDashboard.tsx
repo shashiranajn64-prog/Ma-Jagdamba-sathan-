@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  collection, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc, addDoc, serverTimestamp, setDoc 
+  collection, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc, addDoc, serverTimestamp, setDoc, getDocs 
 } from 'firebase/firestore';
 import { db, auth } from '../firebase/config';
 import { Donation, Staff, GalleryItem, Notice, NavratriDay, SiteSettings, AuditLog } from '../types';
@@ -36,7 +36,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, settin
 
   const [showAddStaff, setShowAddStaff] = useState(false);
   const [staffName, setStaffName] = useState('');
-  const [staffEmail, setStaffEmail] = useState('');
+  const [staffIdCode, setStaffIdCode] = useState('MJS-' + Math.floor(1000 + Math.random() * 9000));
   const [staffPassword, setStaffPassword] = useState('');
   const [staffMobile, setStaffMobile] = useState('');
   const [staffDesignation, setStaffDesignation] = useState('Temple Assistant');
@@ -124,7 +124,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, settin
 
   const handleApproveDonation = async (d: Donation) => {
     try {
-      const receiptNum = 'REC-' + Math.floor(100000 + Math.random() * 900000);
+      let receiptNum = d.receiptNumber;
+      if (!receiptNum || receiptNum.startsWith('REC-')) {
+        const querySnapshot = await getDocs(collection(db, 'donations'));
+        const nextSeq = querySnapshot.size;
+        receiptNum = `MJS-${String(nextSeq).padStart(2, '0')}`;
+      }
       await updateDoc(doc(db, 'donations', d.id), {
         status: 'Approved',
         receiptNumber: receiptNum,
@@ -132,6 +137,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, settin
         approvedBy: auth.currentUser?.email || 'Admin',
         updatedAt: serverTimestamp()
       });
+      await updateDoc(doc(db, 'onlineDonations', d.id), {
+        status: 'Approved',
+        receiptNumber: receiptNum,
+        approvedAt: serverTimestamp(),
+        approvedBy: auth.currentUser?.email || 'Admin',
+        updatedAt: serverTimestamp()
+      }).catch(() => {});
+
       await logAudit('APPROVE_DONATION', `Approved donation ${d.id} of ₹${d.amount} for ${d.donorName}`, d.id);
       alert('दान सफलतापूर्वक स्वीकृत कर दिया गया!');
     } catch (e: any) {
@@ -167,38 +180,51 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, settin
     }
   };
 
+  const handleDeleteStaff = async (id: string, name: string) => {
+    if (window.confirm(`क्या आप स्टाफ सदस्य "${name}" को हटाना चाहते हैं?`)) {
+      try {
+        await deleteDoc(doc(db, 'staff', id));
+        await logAudit('DELETE_STAFF', `Deleted staff member ${name} (${id})`, id);
+        alert('स्टाफ सफलतापूर्वक हटा दिया गया।');
+      } catch (e: any) {
+        console.error('Delete staff error:', e);
+        alert('त्रुटि: ' + (e.message || e));
+      }
+    }
+  };
+
   const handleCreateStaff = async (e: React.FormEvent) => {
     e.preventDefault();
     const form = e.currentTarget as HTMLFormElement;
     try {
-      const staffCode = 'STF-' + Math.floor(1000 + Math.random() * 9000);
+      const code = staffIdCode.trim().toUpperCase() || ('MJS-' + Math.floor(1000 + Math.random() * 9000));
       const staffId = 'staff_' + Date.now();
 
       const staffPayload: Staff = {
         id: staffId,
         fullName: staffName.trim(),
-        email: staffEmail.trim().toLowerCase(),
+        email: '',
         password: staffPassword.trim(),
         mobile: staffMobile.trim(),
         address: staffAddress.trim(),
         designation: staffDesignation,
         joiningDate: staffJoiningDate,
-        staffIdCode: staffCode,
+        staffIdCode: code,
         isActive: true,
         photoUrl: staffPhotoUrl.trim() || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
         createdAt: serverTimestamp()
       };
 
       await setDoc(doc(db, 'staff', staffId), staffPayload);
-      await logAudit('CREATE_STAFF', `Created staff member ${staffName} (${staffCode})`, staffId);
+      await logAudit('CREATE_STAFF', `Created staff member ${staffName} (${code})`, staffId);
       
       // 1. Show success toast "सफलतापूर्वक सेव हो गया"
       alert('सफलतापूर्वक सेव हो गया');
 
-      // 2. Immediately auto-clear all fields: Full Name = "", Mobile = "", Email = "", Password = "", Photo = null, Crop preview = null
+      // 2. Immediately auto-clear all fields
       setStaffName('');
       setStaffMobile('');
-      setStaffEmail('');
+      setStaffIdCode('MJS-' + Math.floor(1000 + Math.random() * 9000));
       setStaffPassword('');
       setStaffAddress('');
       setStaffPhotoUrl('');
@@ -281,10 +307,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, settin
     e.preventDefault();
     try {
       localStorage.setItem('siteSettings', JSON.stringify(settings));
-      await setDoc(doc(db, 'siteSettings', 'config'), settings).catch((err) => {
-        console.warn('Firestore write note:', err);
-      });
-      alert('वेबसाइट सेटिंग्स एवं UPI जानकारी सफलतापूर्वक अपडेट हो गई है!');
+      await setDoc(doc(db, 'siteSettings', 'config'), settings, { merge: true });
+      await setDoc(doc(db, 'config', 'main'), settings, { merge: true });
+      alert('सफलतापूर्वक सेव हो गया');
       await logAudit('UPDATE_SETTINGS', 'Updated site settings and UPI information');
     } catch (e: any) {
       console.error('Save settings error:', e);
@@ -619,17 +644,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, settin
                   </div>
                 </div>
                 <div className="text-xs text-stone-600 space-y-1 border-t pt-3 pb-2">
-                  <p><span className="font-semibold">ईमेल:</span> {st.email}</p>
+                  <p><span className="font-semibold">आईडी कोड:</span> <span className="font-mono font-bold text-red-900">{st.staffIdCode}</span></p>
                   <p><span className="font-semibold">मोबाईल:</span> {st.mobile}</p>
                   <p><span className="font-semibold">जोइनिंग:</span> {st.joiningDate}</p>
                 </div>
-                <button
-                  onClick={() => setSelectedStaffForCard(st)}
-                  className="w-full bg-amber-600 hover:bg-amber-700 text-red-950 font-bold py-2 rounded-xl text-xs flex items-center justify-center space-x-1.5 shadow"
-                >
-                  <Shield className="w-4 h-4" />
-                  <span>आईडी कार्ड देखें (View ID Card)</span>
-                </button>
+                <div className="flex gap-2 pt-2">
+                  <button
+                    onClick={() => setSelectedStaffForCard(st)}
+                    className="flex-1 bg-amber-600 hover:bg-amber-700 text-red-950 font-bold py-2 rounded-xl text-xs flex items-center justify-center space-x-1.5 shadow"
+                  >
+                    <Shield className="w-4 h-4" />
+                    <span>आईडी कार्ड देखें</span>
+                  </button>
+                  <button
+                    onClick={() => handleDeleteStaff(st.id, st.fullName)}
+                    className="bg-red-700 hover:bg-red-800 text-white font-bold px-3 py-2 rounded-xl text-xs flex items-center justify-center shadow"
+                    title="स्टाफ हटाएं"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -658,8 +692,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, settin
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-bold text-stone-700">लॉगिन ईमेल *</label>
-                      <input type="email" required value={staffEmail} onChange={e => setStaffEmail(e.target.value)} className="w-full px-3 py-2 rounded-xl border text-sm" />
+                      <label className="block text-xs font-bold text-stone-700">स्टाफ आईडी (Staff ID) *</label>
+                      <input type="text" required value={staffIdCode} onChange={e => setStaffIdCode(e.target.value)} placeholder="MJS-001" className="w-full px-3 py-2 rounded-xl border text-sm font-mono uppercase" />
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-stone-700">पासवर्ड *</label>
@@ -899,10 +933,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, settin
                 <input type="text" value={settings.templeName} onChange={e => setSettings({ ...settings, templeName: e.target.value })} className="w-full px-3.5 py-2 rounded-xl border text-sm" />
               </div>
               <div>
-                <label className="block text-xs font-bold text-stone-700">संपर्क नंबर</label>
+                <label className="block text-xs font-bold text-stone-700">संपर्क नंबर (Phone)</label>
                 <input type="text" value={settings.contactNumber} onChange={e => setSettings({ ...settings, contactNumber: e.target.value })} className="w-full px-3.5 py-2 rounded-xl border text-sm" />
               </div>
             </div>
+
+            <div>
+              <label className="block text-xs font-bold text-stone-700">ईमेल आईडी (Contact Email)</label>
+              <input type="email" value={settings.email || ''} onChange={e => setSettings({ ...settings, email: e.target.value })} className="w-full px-3.5 py-2 rounded-xl border text-sm" />
+            </div>
+
             <div>
               <label className="block text-xs font-bold text-stone-700">हीरो हेडिंग (Hero Heading)</label>
               <input type="text" value={settings.heroHeading} onChange={e => setSettings({ ...settings, heroHeading: e.target.value })} className="w-full px-3.5 py-2 rounded-xl border text-sm" />
@@ -918,6 +958,33 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, settin
             <div>
               <label className="block text-xs font-bold text-stone-700">मंदिर का पता (Address)</label>
               <input type="text" value={settings.address} onChange={e => setSettings({ ...settings, address: e.target.value })} className="w-full px-3.5 py-2 rounded-xl border text-sm" />
+            </div>
+
+            <div className="border-t border-stone-200 pt-4 space-y-3">
+              <h4 className="text-xs font-bold uppercase text-stone-600 tracking-wider">सोशल मीडिया लिंक्स (Social Links)</h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-stone-600">Facebook URL</label>
+                  <input type="text" value={settings.socialLinks?.facebook || ''} onChange={e => setSettings({ ...settings, socialLinks: { ...settings.socialLinks, facebook: e.target.value } })} className="w-full px-3 py-1.5 rounded-xl border text-xs" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-stone-600">YouTube URL</label>
+                  <input type="text" value={settings.socialLinks?.youtube || ''} onChange={e => setSettings({ ...settings, socialLinks: { ...settings.socialLinks, youtube: e.target.value } })} className="w-full px-3 py-1.5 rounded-xl border text-xs" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-stone-600">Instagram URL</label>
+                  <input type="text" value={settings.socialLinks?.instagram || ''} onChange={e => setSettings({ ...settings, socialLinks: { ...settings.socialLinks, instagram: e.target.value } })} className="w-full px-3 py-1.5 rounded-xl border text-xs" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-stone-600">WhatsApp URL</label>
+                  <input type="text" value={settings.socialLinks?.whatsapp || ''} onChange={e => setSettings({ ...settings, socialLinks: { ...settings.socialLinks, whatsapp: e.target.value } })} className="w-full px-3 py-1.5 rounded-xl border text-xs" />
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-stone-700">फुटर कॉपीराइट टेक्स्ट (Footer Text)</label>
+              <input type="text" value={settings.footerText || ''} onChange={e => setSettings({ ...settings, footerText: e.target.value })} className="w-full px-3.5 py-2 rounded-xl border text-sm" />
             </div>
 
             <div className="flex items-center space-x-3 bg-amber-50 p-4 rounded-xl border border-amber-200">

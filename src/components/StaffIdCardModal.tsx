@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Staff } from '../types';
-import { X, Download, Printer, RotateCw, Shield, Phone, MapPin, AlertCircle, CheckCircle } from 'lucide-react';
-import html2canvas from 'html2canvas';
+import { X, Download, Printer, Shield, Phone, MapPin } from 'lucide-react';
+import html2canvas from 'html2canvas-pro';
 import jsPDF from 'jspdf';
 
 interface StaffIdCardModalProps {
@@ -10,13 +10,25 @@ interface StaffIdCardModalProps {
 }
 
 export const StaffIdCardModal: React.FC<StaffIdCardModalProps> = ({ staff, onClose }) => {
-  const [side, setSide] = useState<'front' | 'back'>('front');
+  const [side, setSide] = useState<'front' | 'back' | 'both'>('both');
   const [isExporting, setIsExporting] = useState(false);
 
   const frontRef = useRef<HTMLDivElement>(null);
   const backRef = useRef<HTMLDivElement>(null);
 
-  const staffCode = staff.staffIdCode || 'MJS-STAFF-' + Math.floor(1000 + Math.random() * 9000);
+  const staffCode = staff.staffIdCode || 'MJS-01';
+
+  // Determine role category automatically from designation
+  const designationLower = (staff.designation || '').toLowerCase();
+  const isPujari = designationLower.includes('pujari') || designationLower.includes('पुजारी') || designationLower.includes('purohit') || designationLower.includes('pandit');
+  const isVolunteer = designationLower.includes('volunteer') || designationLower.includes('वालंटियर') || designationLower.includes('सेवा दल') || designationLower.includes('sevadar');
+
+  const cardRoleTitle = isPujari ? 'पुजारी (PUJARI)' : isVolunteer ? 'सेवा दल (VOLUNTEER)' : 'मंदिर स्टाफ (STAFF)';
+  const englishRole = isPujari ? 'PUJARI' : isVolunteer ? 'VOLUNTEER' : 'STAFF';
+  const badgeTitle = isPujari ? 'पुजारी परिचय पत्र' : isVolunteer ? 'सेवा दल परिचय पत्र' : 'स्टाफ परिचय पत्र';
+  const backTitle = isPujari ? 'पुजारी विवरण' : isVolunteer ? 'सेवा दल विवरण' : 'स्टाफ विवरण';
+
+  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(`Verified ${englishRole} ID: ${staffCode} | Name: ${staff.fullName} | Role: ${staff.designation || 'Sevadar'} | Maa Jagdamba Sthan Trust`)}`;
 
   const handleDownloadJpg = async (targetSide: 'front' | 'back') => {
     setIsExporting(true);
@@ -28,18 +40,19 @@ export const StaffIdCardModal: React.FC<StaffIdCardModalProps> = ({ staff, onClo
 
     try {
       const canvas = await html2canvas(element, {
-        scale: 3, // 300 DPI high resolution
+        scale: 3,
         useCORS: true,
-        backgroundColor: '#ffffff'
+        allowTaint: true,
+        backgroundColor: '#4a050d'
       });
       const image = canvas.toDataURL('image/jpeg', 1.0);
       const link = document.createElement('a');
       link.href = image;
-      link.download = `${staff.fullName.replace(/\s+/g, '_')}_ID_${targetSide.toUpperCase()}.jpg`;
+      link.download = `${staff.fullName.replace(/\s+/g, '_')}_${englishRole}_ID_${targetSide.toUpperCase()}.jpg`;
       link.click();
     } catch (err) {
       console.error('Download JPG error:', err);
-      alert('इमेज डाउनलोड करने में त्रुटि हुई।');
+      alert('इमेज डाउनलोड करने में त्रुटि हुई। कृपया पुनः प्रयास करें।');
     } finally {
       setIsExporting(false);
     }
@@ -50,24 +63,23 @@ export const StaffIdCardModal: React.FC<StaffIdCardModalProps> = ({ staff, onClo
     setIsExporting(true);
 
     try {
-      const canvasFront = await html2canvas(frontRef.current, { scale: 3, useCORS: true, backgroundColor: '#ffffff' });
-      const canvasBack = await html2canvas(backRef.current, { scale: 3, useCORS: true, backgroundColor: '#ffffff' });
+      const canvasFront = await html2canvas(frontRef.current, { scale: 3, useCORS: true, allowTaint: true, backgroundColor: '#4a050d' });
+      const canvasBack = await html2canvas(backRef.current, { scale: 3, useCORS: true, allowTaint: true, backgroundColor: '#4a050d' });
 
       const imgFront = canvasFront.toDataURL('image/jpeg', 1.0);
       const imgBack = canvasBack.toDataURL('image/jpeg', 1.0);
 
+      // A4 portrait PDF for vertical CR80 54mm x 86mm ID cards
       const pdf = new jsPDF({
-        orientation: 'landscape',
+        orientation: 'portrait',
         unit: 'mm',
         format: 'a4'
       });
 
-      // Add Front Card image
-      pdf.addImage(imgFront, 'JPEG', 20, 20, 110, 68);
-      // Add Back Card image
-      pdf.addImage(imgBack, 'JPEG', 145, 20, 110, 68);
+      pdf.addImage(imgFront, 'JPEG', 42, 35, 54, 86);
+      pdf.addImage(imgBack, 'JPEG', 114, 35, 54, 86);
 
-      pdf.save(`${staff.fullName.replace(/\s+/g, '_')}_ID_Cards.pdf`);
+      pdf.save(`${staff.fullName.replace(/\s+/g, '_')}_${englishRole}_Vertical_ID_Cards.pdf`);
     } catch (err) {
       console.error('PDF export error:', err);
       alert('PDF डाउनलोड करने में त्रुटि हुई।');
@@ -82,215 +94,211 @@ export const StaffIdCardModal: React.FC<StaffIdCardModalProps> = ({ staff, onClo
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 overflow-y-auto">
-      <div className="bg-white rounded-3xl shadow-2xl max-w-3xl w-full p-6 sm:p-8 space-y-6 border-4 border-amber-500">
+      <div className="bg-stone-900 rounded-3xl shadow-2xl max-w-4xl w-full p-6 sm:p-8 space-y-6 border-4 border-amber-500">
         
         {/* Header */}
-        <div className="flex justify-between items-center border-b border-stone-200 pb-4">
+        <div className="flex justify-between items-center border-b border-stone-800 pb-4">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-full bg-red-950 text-amber-400 flex items-center justify-center font-bold">
+            <div className="w-10 h-10 rounded-full bg-amber-500 text-red-950 flex items-center justify-center font-bold shadow">
               <Shield className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-bold font-serif text-red-950 text-xl">स्टाफ पहचान पत्र (Staff ID Card)</h3>
-              <p className="text-xs text-stone-500">{staff.fullName} — {staff.designation}</p>
+              <h3 className="font-bold font-serif text-amber-300 text-xl">
+                परिचय पत्र ({badgeTitle}) - 54x86mm
+              </h3>
+              <p className="text-xs text-stone-400">{staff.fullName} — {staff.designation || 'Sevadar'}</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="w-9 h-9 rounded-full bg-stone-100 hover:bg-stone-200 flex items-center justify-center text-stone-700 font-bold transition"
+            className="w-9 h-9 rounded-full bg-stone-800 hover:bg-stone-700 flex items-center justify-center text-amber-300 font-bold transition"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Toggle / Flip Buttons */}
-        <div className="flex justify-center items-center gap-3">
+        {/* View Mode Buttons */}
+        <div className="flex flex-wrap justify-center items-center gap-3">
           <button
-            onClick={() => setSide('front')}
-            className={`px-5 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-2 shadow ${
-              side === 'front'
-                ? 'bg-red-950 text-amber-300 border-2 border-amber-400'
-                : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
+            onClick={() => setSide('both')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition shadow ${
+              side === 'both'
+                ? 'bg-amber-500 text-red-950 border-2 border-amber-300'
+                : 'bg-stone-800 text-stone-300 hover:bg-stone-700'
             }`}
           >
-            <span>सामने का भाग (Front Side)</span>
+            दोनों साइड (Side by Side)
+          </button>
+          <button
+            onClick={() => setSide('front')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition shadow ${
+              side === 'front'
+                ? 'bg-amber-500 text-red-950 border-2 border-amber-300'
+                : 'bg-stone-800 text-stone-300 hover:bg-stone-700'
+            }`}
+          >
+            सामने का भाग (Front Side)
           </button>
           <button
             onClick={() => setSide('back')}
-            className={`px-5 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-2 shadow ${
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition shadow ${
               side === 'back'
-                ? 'bg-red-950 text-amber-300 border-2 border-amber-400'
-                : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
+                ? 'bg-amber-500 text-red-950 border-2 border-amber-300'
+                : 'bg-stone-800 text-stone-300 hover:bg-stone-700'
             }`}
           >
-            <span>पीछे का भाग (Back Side)</span>
-          </button>
-          <button
-            onClick={() => setSide(side === 'front' ? 'back' : 'front')}
-            className="bg-amber-600 hover:bg-amber-700 text-red-950 px-3 py-2 rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow"
-            title="Flip Card"
-          >
-            <RotateCw className="w-4 h-4" />
-            <span>पलटें (Flip)</span>
+            पीछे का भाग (Back Side)
           </button>
         </div>
 
-        {/* Card Display Area */}
-        <div className="flex justify-center py-4">
-          {/* FRONT SIDE */}
+        {/* Card Display Container */}
+        <div className="bg-stone-950 p-6 rounded-2xl border-2 border-amber-600/50 flex flex-wrap justify-center items-center gap-8 overflow-x-auto shadow-inner">
+          
+          {/* ================= FRONT SIDE ================= */}
           <div
             ref={frontRef}
-            className={`w-[400px] h-[250px] bg-white rounded-2xl shadow-2xl border-4 border-amber-500 overflow-hidden relative flex flex-col justify-between transition-all duration-300 ${
-              side === 'front' ? 'block' : 'hidden'
+            className={`w-[240px] h-[380px] bg-[#4a050d] rounded-2xl shadow-2xl border-4 border-amber-600 overflow-hidden relative flex flex-col justify-between shrink-0 ${
+              side === 'back' ? 'hidden' : 'flex'
             }`}
-            style={{ backgroundColor: '#ffffff' }}
           >
-            {/* Top Maroon Header */}
-            <div className="bg-[#4a0000] text-amber-300 px-3 py-2 flex items-center justify-between border-b-2 border-amber-400">
-              <div className="flex items-center space-x-2">
-                <div className="w-7 h-7 rounded-full bg-amber-400 text-[#4a0000] flex items-center justify-center font-serif font-bold text-xs shadow">
-                  ॐ
-                </div>
-                <div>
-                  <h4 className="text-[10px] font-bold tracking-wider font-serif text-amber-200">माँ जगदंबा स्थान — मंदिर ट्रस्ट</h4>
-                  <p className="text-[8px] text-amber-400 font-mono tracking-widest">MAA JAGDAMBA STHAN TRUST</p>
-                </div>
-              </div>
-              <span className="text-[9px] font-bold bg-amber-400 text-[#4a0000] px-2 py-0.5 rounded font-mono">
-                STAFF ID
-              </span>
+            {/* Top Temple Header */}
+            <div className="bg-[#4a050d] text-amber-300 px-2 py-2 flex flex-col items-center justify-center border-b-2 border-amber-600 text-center relative">
+              <h4 className="text-[11px] font-bold tracking-tight font-serif text-amber-200 uppercase drop-shadow">
+                माँ जगदम्बा स्थान मंदिर
+              </h4>
+              <p className="text-[7.5px] tracking-widest text-amber-400 font-semibold uppercase">
+                MAA JAGDAMBA STHAN TEMPLE
+              </p>
             </div>
 
-            {/* Middle Content */}
-            <div className="p-3.5 flex gap-3.5 items-center flex-1">
-              {/* Left Column: Photo & QR */}
-              <div className="flex flex-col items-center space-y-2 shrink-0">
-                <div className="w-20 h-24 rounded-xl bg-stone-200 overflow-hidden border-2 border-amber-500 shadow-md">
-                  <img src={staff.photoUrl} alt={staff.fullName} className="w-full h-full object-cover" />
+            {/* Middle Container with Cream Background */}
+            <div className="mx-2 my-2 bg-[#fcf6ed] rounded-xl p-2.5 flex flex-col items-center shadow-inner border border-amber-400/60 flex-1 justify-between">
+              
+              {/* Dynamic Role Title Banner */}
+              <div className="text-center w-full border-b border-amber-800/20 pb-1">
+                <h3 className="font-serif font-black tracking-widest text-[#4a050d] text-xs uppercase">
+                  {cardRoleTitle}
+                </h3>
+              </div>
+
+              {/* Photo & QR Code */}
+              <div className="flex items-center gap-2.5 w-full justify-center my-1">
+                <div className="w-[84px] h-[104px] rounded-lg bg-stone-200 overflow-hidden border-2 border-[#4a050d] shadow shrink-0">
+                  <img src={staff.photoUrl} alt={staff.fullName} className="w-full h-full object-cover" crossOrigin="anonymous" />
                 </div>
-                {/* Auto-generated QR representation */}
-                <div className="w-12 h-12 bg-white p-1 rounded border border-stone-300 flex items-center justify-center shadow-inner">
-                  <div className="w-full h-full bg-[#4a0000] p-0.5 grid grid-cols-4 gap-0.5">
-                    <div className="bg-amber-400"></div><div className="bg-white"></div><div className="bg-amber-400"></div><div className="bg-white"></div>
-                    <div className="bg-white"></div><div className="bg-amber-400"></div><div className="bg-white"></div><div className="bg-amber-400"></div>
-                    <div className="bg-amber-400"></div><div className="bg-white"></div><div className="bg-amber-400"></div><div className="bg-white"></div>
-                    <div className="bg-white"></div><div className="bg-amber-400"></div><div className="bg-white"></div><div className="bg-amber-400"></div>
+                <div className="flex flex-col items-center justify-center space-y-1">
+                  <div className="w-12 h-12 bg-white p-0.5 rounded border border-orange-500 flex items-center justify-center shadow">
+                    <img src={qrCodeUrl} alt="QR" className="w-full h-full object-contain" crossOrigin="anonymous" />
                   </div>
+                  <span className="text-[6px] text-stone-600 font-bold tracking-tighter">सत्यापन हेतु स्कैन करें</span>
                 </div>
               </div>
 
-              {/* Right Column: Details */}
-              <div className="flex-1 space-y-1 text-xs">
+              {/* Details Fields */}
+              <div className="w-full space-y-1 text-left bg-white p-2 rounded-lg border border-amber-200 shadow-sm text-[8px]">
                 <div>
-                  <p className="text-[9px] text-stone-500 uppercase font-bold tracking-wider">नाम (Name)</p>
-                  <p className="font-bold text-red-950 text-sm font-serif line-clamp-1">{staff.fullName}</p>
+                  <p className="text-[6.5px] text-stone-500 uppercase font-bold tracking-wider">नाम (NAME):</p>
+                  <p className="font-bold text-[#4a050d] text-[10.5px] font-serif leading-tight line-clamp-1">{staff.fullName}</p>
                 </div>
                 <div>
-                  <p className="text-[9px] text-stone-500 uppercase font-bold tracking-wider">पद (Designation)</p>
-                  <p className="font-semibold text-amber-900 text-xs">{staff.designation}</p>
-                </div>
-                <div className="grid grid-cols-2 gap-1 pt-0.5">
-                  <div>
-                    <p className="text-[8px] text-stone-500 uppercase font-bold">आईडी नं (ID No)</p>
-                    <p className="font-mono font-bold text-red-950 text-[11px]">{staffCode}</p>
-                  </div>
-                  <div>
-                    <p className="text-[8px] text-stone-500 uppercase font-bold">मोबाईल (Mobile)</p>
-                    <p className="font-mono text-stone-800 text-[11px]">{staff.mobile}</p>
-                  </div>
+                  <p className="text-[6.5px] text-stone-500 uppercase font-bold tracking-wider">आईडी नंबर (ID NO):</p>
+                  <p className="font-mono font-bold text-amber-900 text-[9.5px]">{staffCode}</p>
                 </div>
                 <div>
-                  <p className="text-[8px] text-stone-500 uppercase font-bold">वैधता (Validity)</p>
-                  <p className="font-mono text-emerald-700 font-bold text-[10px]">01-Jan-2025 से 31-Dec-2026</p>
+                  <p className="text-[6.5px] text-stone-500 uppercase font-bold tracking-wider">पद (DESIGNATION):</p>
+                  <p className="font-semibold text-stone-800 text-[8.5px] line-clamp-1">{staff.designation || 'सेवादल'}</p>
                 </div>
               </div>
             </div>
 
-            {/* Bottom Footer */}
-            <div className="bg-[#4a0000] text-amber-300 py-1 px-3 text-center text-[8px] font-serif tracking-wider border-t border-amber-400">
-              SERVING WITH DEVOTION — EST. TRUST REG. NO. MJSTT/2024/001
+            {/* Bottom padding spacer instead of footer */}
+            <div className="bg-[#4a050d] py-1 text-center text-[7px] text-amber-300 font-serif">
+              * अधिकृत मंदिर पहचान पत्र *
             </div>
           </div>
 
-          {/* BACK SIDE */}
+
+          {/* ================= BACK SIDE ================= */}
           <div
             ref={backRef}
-            className={`w-[400px] h-[250px] bg-white rounded-2xl shadow-2xl border-4 border-amber-500 overflow-hidden relative flex flex-col justify-between transition-all duration-300 ${
-              side === 'back' ? 'block' : 'hidden'
+            className={`w-[240px] h-[380px] bg-[#4a050d] rounded-2xl shadow-2xl border-4 border-amber-600 overflow-hidden relative flex flex-col justify-between shrink-0 ${
+              side === 'front' ? 'hidden' : 'flex'
             }`}
-            style={{ backgroundColor: '#ffffff' }}
           >
-            {/* Top Maroon Header */}
-            <div className="bg-[#4a0000] text-amber-300 px-3 py-2 flex items-center justify-between border-b-2 border-amber-400">
-              <div className="flex items-center space-x-2">
-                <div className="w-7 h-7 rounded-full bg-amber-400 text-[#4a0000] flex items-center justify-center font-serif font-bold text-xs shadow">
-                  ॐ
-                </div>
-                <div>
-                  <h4 className="text-[10px] font-bold tracking-wider font-serif text-amber-200">माँ जगदंबा स्थान मंदिर ट्रस्ट</h4>
-                  <p className="text-[8px] text-amber-400 font-mono tracking-widest">IMPORTANT INFORMATION</p>
-                </div>
-              </div>
-              <span className="text-[9px] font-bold bg-amber-400 text-[#4a0000] px-2 py-0.5 rounded font-mono">
-                RULES & INFO
-              </span>
+            {/* Top Header */}
+            <div className="bg-[#4a050d] text-amber-200 px-2 py-2 flex flex-col items-center justify-center border-b-2 border-amber-600 text-center">
+              <h4 className="text-[10px] font-bold tracking-wider font-serif text-amber-200 uppercase drop-shadow">
+                {backTitle} (महत्वपूर्ण सूचना)
+              </h4>
             </div>
 
-            {/* Middle Content */}
-            <div className="p-3 space-y-2 text-[10px] text-stone-800 flex-1">
-              <div>
-                <p className="font-bold text-red-950 uppercase text-[9px] flex items-center space-x-1">
-                  <MapPin className="w-3 h-3 text-amber-600 inline" />
-                  <span>मंदिर का पता (Temple Address):</span>
-                </p>
-                <p className="text-stone-600 pl-4">जगदंबा चौक, डुमरांव, बक्सर, बिहार - 802101</p>
+            {/* Middle Container - All in Hindi */}
+            <div className="mx-2 my-2 bg-[#fcf6ed] rounded-xl p-2 space-y-1.5 text-[8px] text-stone-900 shadow-inner border border-amber-400/60 flex-1">
+              
+              {/* Section 1: Temple Details (Website Home Page Address) */}
+              <div className="bg-amber-500/20 rounded p-1.5 border border-amber-500/30">
+                <div className="bg-[#d97706] text-white text-[7.5px] font-bold px-2 py-0.5 rounded text-center uppercase mb-1">
+                  मंदिर विवरण (पता)
+                </div>
+                <div className="space-y-0.5 text-stone-800 font-medium text-[7.5px]">
+                  <p className="flex items-start space-x-1">
+                    <MapPin className="w-2.5 h-2.5 text-amber-800 shrink-0 mt-0.5" />
+                    <span>सिद्धपीठ माँ जगदम्बा स्थान, मथुरापुर, मुजफ्फरपुर, बिहार - 843119</span>
+                  </p>
+                  <p className="flex items-center space-x-1">
+                    <Phone className="w-2.5 h-2.5 text-amber-800 shrink-0" />
+                    <span>मोबाईल: +91-97091-68876 • info@maajagdambasthan.org</span>
+                  </p>
+                </div>
               </div>
 
-              <div>
-                <p className="font-bold text-red-950 uppercase text-[9px] flex items-center space-x-1">
-                  <Phone className="w-3 h-3 text-amber-600 inline" />
-                  <span>आपातकालीन संपर्क (Emergency Contacts):</span>
-                </p>
-                <p className="text-stone-600 pl-4">कार्यालय: +91 98765 43210 | एम्बुलेंस: 108 | पुलिस: 100</p>
+              {/* Section 2: Emergency Contact */}
+              <div className="bg-amber-500/20 rounded p-1.5 border border-amber-500/30">
+                <div className="bg-[#d97706] text-white text-[7.5px] font-bold px-2 py-0.5 rounded text-center uppercase mb-1">
+                  आपातकालीन संपर्क
+                </div>
+                <div className="space-y-0.5 text-stone-800 text-[7.5px]">
+                  <p><span className="font-bold">कार्यालय:</span> मंदिर न्यास समिति</p>
+                  <p><span className="font-bold">हेल्पलाइन:</span> +91-97091-68876</p>
+                  <p><span className="font-bold">भूमिका:</span> {staff.designation || 'सेवादल'}</p>
+                </div>
               </div>
 
-              <div>
-                <p className="font-bold text-red-950 uppercase text-[9px] flex items-center space-x-1">
-                  <AlertCircle className="w-3 h-3 text-amber-600 inline" />
-                  <span>नियम एवं शर्तें (Terms & Conditions):</span>
-                </p>
-                <ul className="list-disc pl-7 text-[9px] text-stone-600 space-y-0.5">
-                  <li>यह कार्ड अहस्तांतरणीय है और ड्यूटी के दौरान साथ रखना अनिवार्य है।</li>
-                  <li>दुरुपयोग की स्थिति में ट्रस्ट द्वारा तुरंत सेवा समाप्त की जा सकती है।</li>
-                  <li>सेवा समाप्ति पर यह कार्ड मंदिर कार्यालय में वापस करना होगा।</li>
+              {/* Section 3: Instructions */}
+              <div className="bg-amber-500/20 rounded p-1.5 border border-amber-500/30">
+                <div className="bg-[#d97706] text-white text-[7.5px] font-bold px-2 py-0.5 rounded text-center uppercase mb-1">
+                  नियम एवं निर्देश:
+                </div>
+                <ul className="list-disc pl-3 text-[7px] text-stone-800 space-y-0.5 leading-tight">
+                  <li>यह परिचय पत्र केवल मंदिर सेवा कार्यों हेतु मान्य है।</li>
+                  <li>ड्यूटी के दौरान कार्ड को हमेशा गले में दृश्यमान रखें।</li>
+                  <li>पाए जाने पर कृपया मंदिर कार्यालय में वापस जमा कराएं।</li>
                 </ul>
               </div>
+
             </div>
 
-            {/* Bottom Footer / Barcode & Signature */}
-            <div className="bg-stone-100 px-3 py-2 border-t border-amber-300 flex justify-between items-center text-[8px]">
-              <div className="space-y-0.5">
-                <div className="font-mono font-bold tracking-widest text-stone-800 text-[10px]">
-                  |||l|l|l|l| |||||l||l||| {staffCode}
-                </div>
-                <p className="text-[7px] text-stone-500">IF FOUND PLEASE RETURN TO ABOVE ADDRESS</p>
+            {/* Bottom Signatures Only (No footer bar) */}
+            <div className="bg-[#fcf6ed] px-2 py-2 border-t border-amber-600 flex justify-between items-end text-[7px]">
+              <div className="text-center">
+                <div className="border-b border-stone-400 w-24 h-4 mb-0.5"></div>
+                <p className="text-[6px] font-bold">धारक के हस्ताक्षर</p>
               </div>
-              <div className="text-center space-y-1">
-                <div className="font-serif italic font-bold text-red-950 text-[10px] border-b border-stone-400 px-3">
-                  Authorized Signatory
-                </div>
-                <p className="text-[7px] text-stone-500 font-semibold">Managing Trustee</p>
+              <div className="text-center">
+                <div className="border-b border-stone-400 w-24 h-4 mb-0.5"></div>
+                <p className="text-[6px] font-bold">प्रबंध ट्रस्टी</p>
               </div>
             </div>
           </div>
+
         </div>
 
         {/* Action Buttons */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2 border-t border-stone-200">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2 border-t border-stone-800">
           <button
             onClick={() => handleDownloadJpg('front')}
             disabled={isExporting}
-            className="bg-red-900 hover:bg-red-950 text-amber-200 font-bold py-2.5 px-3 rounded-xl text-xs flex items-center justify-center space-x-1.5 shadow transition disabled:opacity-50"
+            className="bg-amber-600 hover:bg-amber-700 text-red-950 font-bold py-2.5 px-3 rounded-xl text-xs flex items-center justify-center space-x-1.5 shadow transition disabled:opacity-50"
           >
             <Download className="w-4 h-4" />
             <span>सामने की JPG</span>
@@ -298,7 +306,7 @@ export const StaffIdCardModal: React.FC<StaffIdCardModalProps> = ({ staff, onClo
           <button
             onClick={() => handleDownloadJpg('back')}
             disabled={isExporting}
-            className="bg-red-900 hover:bg-red-950 text-amber-200 font-bold py-2.5 px-3 rounded-xl text-xs flex items-center justify-center space-x-1.5 shadow transition disabled:opacity-50"
+            className="bg-amber-600 hover:bg-amber-700 text-red-950 font-bold py-2.5 px-3 rounded-xl text-xs flex items-center justify-center space-x-1.5 shadow transition disabled:opacity-50"
           >
             <Download className="w-4 h-4" />
             <span>पीछे की JPG</span>
@@ -306,7 +314,7 @@ export const StaffIdCardModal: React.FC<StaffIdCardModalProps> = ({ staff, onClo
           <button
             onClick={handleDownloadPdf}
             disabled={isExporting}
-            className="bg-amber-600 hover:bg-amber-700 text-red-950 font-bold py-2.5 px-3 rounded-xl text-xs flex items-center justify-center space-x-1.5 shadow transition disabled:opacity-50"
+            className="bg-red-800 hover:bg-red-900 text-amber-200 font-bold py-2.5 px-3 rounded-xl text-xs flex items-center justify-center space-x-1.5 shadow transition disabled:opacity-50"
           >
             <Download className="w-4 h-4" />
             <span>PDF डाउनलोड</span>
@@ -314,7 +322,7 @@ export const StaffIdCardModal: React.FC<StaffIdCardModalProps> = ({ staff, onClo
           <button
             onClick={handlePrint}
             disabled={isExporting}
-            className="bg-stone-800 hover:bg-stone-900 text-white font-bold py-2.5 px-3 rounded-xl text-xs flex items-center justify-center space-x-1.5 shadow transition disabled:opacity-50"
+            className="bg-stone-200 hover:bg-stone-300 text-stone-900 font-bold py-2.5 px-3 rounded-xl text-xs flex items-center justify-center space-x-1.5 shadow transition disabled:opacity-50"
           >
             <Printer className="w-4 h-4" />
             <span>प्रिंट कार्ड</span>

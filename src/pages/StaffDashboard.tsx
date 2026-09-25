@@ -1,20 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, where, addDoc, onSnapshot, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, addDoc, setDoc, onSnapshot, serverTimestamp, doc, updateDoc, getDocs } from 'firebase/firestore';
 import { db } from '../firebase/config';
-import { Staff, Donation, GalleryItem } from '../types';
+import { Staff, Donation, GalleryItem, SiteSettings } from '../types';
 import { UserCheck, PlusCircle, Image as ImageIcon, FileText, LogOut, CheckCircle2, QrCode } from 'lucide-react';
 import { ImageUpload } from '../components/ImageUpload';
 import { StaffIdCardModal } from '../components/StaffIdCardModal';
+import { ReceiptModal } from '../components/ReceiptModal';
 
 interface StaffDashboardProps {
   staffData: Staff;
+  settings: SiteSettings;
   onLogout: () => void;
 }
 
-export const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffData, onLogout }) => {
+export const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffData, settings, onLogout }) => {
   const [activeTab, setActiveTab] = useState<'donations' | 'gallery' | 'profile'>('donations');
   const [donations, setDonations] = useState<Donation[]>([]);
   const [showIdCard, setShowIdCard] = useState(false);
+  const [successDonation, setSuccessDonation] = useState<Donation | null>(null);
   
   const [donorName, setDonorName] = useState('');
   const [mobile, setMobile] = useState('');
@@ -51,6 +54,23 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffData, onLog
   const handleAddCashDonation = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const querySnapshot = await getDocs(collection(db, 'donations'));
+      let maxSeq = 0;
+      querySnapshot.forEach((docSnap) => {
+        const dData = docSnap.data();
+        const rNum = dData.receiptNumber;
+        if (rNum && typeof rNum === 'string') {
+          const match = rNum.match(/MJS-(\d+)/i);
+          if (match) {
+            const num = parseInt(match[1], 10);
+            if (!isNaN(num) && num > maxSeq) maxSeq = num;
+          }
+        }
+      });
+      const nextSeq = maxSeq + 1;
+      const receiptNumber = `MJS-${String(nextSeq).padStart(2, '0')}`;
+      const donationId = `mjs-2026${String(nextSeq).padStart(2, '0')}`;
+
       const donationData = {
         donorName: donorName.trim(),
         mobile: mobile.trim(),
@@ -61,13 +81,33 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffData, onLog
         status: 'Approved',
         staffId: staffData.id,
         staffName: staffData.fullName,
+        receiptNumber,
         notes: notes.trim(),
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       };
 
-      await addDoc(collection(db, 'donations'), donationData);
-      setSuccessMsg('नकद दान सफलतापूर्वक दर्ज हो गया!');
+      await setDoc(doc(db, 'donations', donationId), donationData);
+
+      const createdDonation: Donation = {
+        id: donationId,
+        donorName: donorName.trim(),
+        mobile: mobile.trim(),
+        amount: Number(amount),
+        donationType: 'Cash',
+        paymentMethod: 'Cash',
+        purpose,
+        status: 'Approved',
+        staffId: staffData.id,
+        staffName: staffData.fullName,
+        receiptNumber,
+        notes: notes.trim(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      setSuccessDonation(createdDonation);
+      setSuccessMsg('नकद दान सफलतापूर्वक दर्ज हो गया और रसीद तैयार है!');
       setDonorName('');
       setMobile('');
       setAmount(501);
@@ -424,6 +464,14 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffData, onLog
             आईडी कार्ड प्रिंट / डाउनलोड करें (Print ID Card)
           </button>
         </div>
+      )}
+
+      {successDonation && (
+        <ReceiptModal
+          donation={successDonation}
+          settings={settings}
+          onClose={() => setSuccessDonation(null)}
+        />
       )}
 
     </div>
