@@ -24,10 +24,31 @@ export const NavratriEditModal: React.FC<NavratriEditModalProps> = ({ day, onClo
     setSaving(true);
     try {
       const docId = `day_${day.dayNumber}`;
-      await setDoc(doc(db, 'navratri', docId), formData, { merge: true });
+      const cleanData: NavratriDay = {
+        ...formData,
+        dayNumber: Number(formData.dayNumber) || day.dayNumber
+      };
+      // Save directly to Firestore
+      await setDoc(doc(db, 'navratri', docId), cleanData);
+
+      // Also persist to localStorage cache for instant zero-lag reload
+      try {
+        const stored = localStorage.getItem('navratri_days_cache');
+        let cacheList: NavratriDay[] = stored ? JSON.parse(stored) : [];
+        const idx = cacheList.findIndex((d) => d.dayNumber === cleanData.dayNumber);
+        if (idx >= 0) {
+          cacheList[idx] = cleanData;
+        } else {
+          cacheList.push(cleanData);
+        }
+        localStorage.setItem('navratri_days_cache', JSON.stringify(cacheList));
+      } catch (e) {
+        console.warn('Cache write warning:', e);
+      }
+
       setSuccess(true);
       if (onSaveSuccess) {
-        onSaveSuccess(formData);
+        onSaveSuccess(cleanData);
       }
       setTimeout(() => {
         onClose();

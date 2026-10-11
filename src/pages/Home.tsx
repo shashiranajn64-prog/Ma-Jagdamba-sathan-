@@ -14,7 +14,16 @@ interface HomeProps {
 export const Home: React.FC<HomeProps> = ({ settings, setCurrentTab }) => {
   const [notices, setNotices] = useState<Notice[]>([]);
   const [galleryPreviews, setGalleryPreviews] = useState<GalleryItem[]>([]);
-  const [navratriDays, setNavratriDays] = useState<NavratriDay[]>(defaultNavratriDays.slice(0, 3));
+  const [navratriDays, setNavratriDays] = useState<NavratriDay[]>(() => {
+    try {
+      const cached = localStorage.getItem('navratri_days_cache');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed.slice(0, 3);
+      }
+    } catch (e) {}
+    return defaultNavratriDays.slice(0, 3);
+  });
 
   useEffect(() => {
     const noticesQuery = query(collection(db, 'notices'), where('isActive', '==', true), orderBy('createdAt', 'desc'), limit(5));
@@ -34,11 +43,19 @@ export const Home: React.FC<HomeProps> = ({ settings, setCurrentTab }) => {
     const navratriQuery = query(collection(db, 'navratri'));
     const unsubNavratri = onSnapshot(navratriQuery, (snapshot) => {
       const list: NavratriDay[] = [];
-      snapshot.forEach((doc) => list.push(doc.data() as NavratriDay));
+      snapshot.forEach((doc) => list.push({ ...doc.data(), dayNumber: Number(doc.data().dayNumber) || 1 } as NavratriDay));
       list.sort((a, b) => a.dayNumber - b.dayNumber);
       if (list.length > 0) {
-        const merged = defaultNavratriDays.map(def => list.find(d => d.dayNumber === def.dayNumber) || def);
-        setNavratriDays(merged.slice(0, 3));
+        const fullList: NavratriDay[] = [];
+        for (let i = 1; i <= 9; i++) {
+          const found = list.find(d => d.dayNumber === i);
+          if (found) fullList.push(found);
+          else {
+            const def = defaultNavratriDays.find(d => d.dayNumber === i);
+            if (def) fullList.push(def);
+          }
+        }
+        setNavratriDays(fullList.slice(0, 3));
       } else {
         setNavratriDays(defaultNavratriDays.slice(0, 3));
       }

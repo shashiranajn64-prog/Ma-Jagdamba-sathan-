@@ -842,23 +842,34 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, settin
       )}
 
       {activeTab === 'navratri' && (() => {
-        const displayNavratriDays = defaultNavratriDays.map((defDay) => {
-          const found = navratriDays.find((d) => d.dayNumber === defDay.dayNumber);
-          return found || defDay;
-        });
+        const displayNavratriDays: NavratriDay[] = [];
+        for (let i = 1; i <= 9; i++) {
+          const found = navratriDays.find((d) => d.dayNumber === i);
+          if (found) {
+            displayNavratriDays.push(found);
+          } else {
+            const def = defaultNavratriDays.find((d) => d.dayNumber === i);
+            if (def) displayNavratriDays.push(def);
+          }
+        }
+        const extraDays = navratriDays.filter((d) => d.dayNumber > 9);
+        const finalDisplay = [...displayNavratriDays, ...extraDays];
 
-        const handleSyncNavratriDays = async () => {
-          if (!confirm('क्या आप सभी 9 दिनों का प्रामाणिक विवरण और तस्वीरें डेटाबेस में सिंक करना चाहते हैं?')) return;
+        const handleResetNavratriDays = async () => {
+          if (!confirm('चेतावनी: क्या आप सभी 9 दिनों को मूल डिफ़ॉल्ट डेटा में रीसेट करना चाहते हैं? आपके द्वारा किए गए सभी कस्टम बदलाव रीसेट हो जाएंगे।')) return;
           setNavratriSyncing(true);
           try {
             for (const day of defaultNavratriDays) {
-              await setDoc(doc(db, 'navratri', `day_${day.dayNumber}`), day, { merge: true });
+              await setDoc(doc(db, 'navratri', `day_${day.dayNumber}`), day);
             }
-            await logAudit('SYNC_NAVRATRI', 'सभी 9 नवरात्रि दिन डेटाबेस में सिंक किए गए');
-            alert('सभी 9 दिन सफलतापूर्वक सिंक हो गए हैं!');
+            try {
+              localStorage.setItem('navratri_days_cache', JSON.stringify(defaultNavratriDays));
+            } catch (e) {}
+            await logAudit('RESET_NAVRATRI', 'सभी 9 नवरात्रि दिन मूल डिफ़ॉल्ट में रीसेट किए गए');
+            alert('सभी 9 दिन सफलतापूर्वक मूल डिफ़ॉल्ट में रीसेट हो गए हैं!');
           } catch (e) {
-            console.error('Navratri sync error:', e);
-            alert('सिंक करने में त्रुटि हुई।');
+            console.error('Navratri reset error:', e);
+            alert('रीसेट करने में त्रुटि हुई।');
           } finally {
             setNavratriSyncing(false);
           }
@@ -869,20 +880,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, settin
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-amber-100 pb-4">
               <div>
                 <h3 className="font-bold font-serif text-red-950 text-xl">नवरात्रि 9 दिन सामग्री प्रबंधन (Navratri CMS)</h3>
-                <p className="text-xs text-stone-500">सभी 9 दिनों की देवी, पावन तस्वीरें, कथा, मंत्र, पूजा विधि और समय सारणी यहाँ पूरी तरह से संपादित की जा सकती है।</p>
+                <p className="text-xs text-stone-500">सभी 9 दिनों की देवी, पावन तस्वीरें, कथा, मंत्र, पूजा विधि और समय सारणी यहाँ पूरी तरह से संपादित की जा सकती है। आपके द्वारा सहेजे गए बदलाव स्थायी (Permanent) रहेंगे।</p>
               </div>
               <button
                 type="button"
-                onClick={handleSyncNavratriDays}
+                onClick={handleResetNavratriDays}
                 disabled={navratriSyncing}
-                className="bg-amber-600 hover:bg-amber-700 text-red-950 font-bold px-4 py-2 rounded-xl text-xs flex items-center space-x-1.5 shadow transition disabled:opacity-50 shrink-0"
+                className="bg-amber-600 hover:bg-amber-700 text-white font-bold px-4 py-2 rounded-xl text-xs flex items-center space-x-1.5 shadow transition disabled:opacity-50 shrink-0"
               >
-                <span>{navratriSyncing ? 'सिंक हो रहा है...' : 'डिफ़ॉल्ट 9 दिन सिंक करें'}</span>
+                <span>{navratriSyncing ? 'रीसेट हो रहा है...' : 'मूल डिफ़ॉल्ट में रीसेट करें (Reset)'}</span>
               </button>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {displayNavratriDays.map((day) => (
+              {finalDisplay.map((day) => (
                 <div key={day.dayNumber} className="border border-amber-200 rounded-2xl overflow-hidden bg-amber-50/20 shadow-md flex flex-col justify-between">
                   <div className="relative h-44 bg-stone-900 overflow-hidden">
                     <img 
@@ -934,7 +945,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, settin
                 day={selectedNavratriDayForEdit}
                 onClose={() => setSelectedNavratriDayForEdit(null)}
                 onSaveSuccess={(updated) => {
-                  setNavratriDays((prev) => prev.map((d) => d.dayNumber === updated.dayNumber ? updated : d));
+                  setNavratriDays((prev) => {
+                    const idx = prev.findIndex((d) => d.dayNumber === updated.dayNumber);
+                    if (idx >= 0) {
+                      const updatedList = [...prev];
+                      updatedList[idx] = updated;
+                      return updatedList;
+                    }
+                    return [...prev, updated].sort((a, b) => a.dayNumber - b.dayNumber);
+                  });
+                  try {
+                    const stored = localStorage.getItem('navratri_days_cache');
+                    let cacheList: NavratriDay[] = stored ? JSON.parse(stored) : [];
+                    const idx = cacheList.findIndex((d) => d.dayNumber === updated.dayNumber);
+                    if (idx >= 0) {
+                      cacheList[idx] = updated;
+                    } else {
+                      cacheList.push(updated);
+                    }
+                    localStorage.setItem('navratri_days_cache', JSON.stringify(cacheList));
+                  } catch (e) {}
                   logAudit('UPDATE_NAVRATRI_DAY', `दिन ${updated.dayNumber} (${updated.deviName}) का विवरण अपडेट किया गया`, `day_${updated.dayNumber}`);
                 }}
               />

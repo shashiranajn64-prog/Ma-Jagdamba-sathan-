@@ -10,7 +10,16 @@ import {
 } from 'lucide-react';
 
 export const Navratri: React.FC = () => {
-  const [days, setDays] = useState<NavratriDay[]>(defaultNavratriDays);
+  const [days, setDays] = useState<NavratriDay[]>(() => {
+    try {
+      const cached = localStorage.getItem('navratri_days_cache');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return defaultNavratriDays;
+  });
   const [loading, setLoading] = useState(false);
   const [speakingDay, setSpeakingDay] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<'all' | number>('all');
@@ -21,36 +30,52 @@ export const Navratri: React.FC = () => {
   useEffect(() => {
     const q = query(collection(db, 'navratri'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
+      if (snapshot.empty) {
+        const cached = localStorage.getItem('navratri_days_cache');
+        if (cached) {
+          try {
+            setDays(JSON.parse(cached));
+            setLoading(false);
+            return;
+          } catch (e) {}
+        }
+        setDays(defaultNavratriDays);
+        setLoading(false);
+        return;
+      }
+
       const list: NavratriDay[] = [];
       snapshot.forEach((docSnap) => {
         const data = docSnap.data() as NavratriDay;
-        // Enrich with default katha, mantra, and pujan vidhi if missing
-        if (!data.katha) {
-          data.katha = getDefaultKatha(data.dayNumber, data.deviName);
-        }
-        if (!data.mantra) {
-          data.mantra = getDefaultMantra(data.dayNumber, data.deviName);
-        }
-        if (!data.pujanVidhi) {
-          data.pujanVidhi = getDefaultPujanVidhi(data.dayNumber, data.deviName);
-        }
-        list.push(data);
+        list.push({
+          ...data,
+          dayNumber: Number(data.dayNumber) || 1
+        });
       });
       list.sort((a, b) => a.dayNumber - b.dayNumber);
 
-      // Merge with defaultNavratriDays if fewer than 9 days in DB
-      if (list.length > 0) {
-        const fullList: NavratriDay[] = defaultNavratriDays.map((defDay) => {
-          const found = list.find((d) => d.dayNumber === defDay.dayNumber);
-          return found || defDay;
-        });
-        setDays(fullList);
-      } else {
-        setDays(defaultNavratriDays);
+      // Prioritize Firestore entries for all days without overriding any saved values
+      const finalDays: NavratriDay[] = [];
+      for (let i = 1; i <= 9; i++) {
+        const found = list.find((d) => d.dayNumber === i);
+        if (found) {
+          finalDays.push(found);
+        } else {
+          const def = defaultNavratriDays.find((d) => d.dayNumber === i);
+          if (def) finalDays.push(def);
+        }
       }
+
+      const extraDays = list.filter((d) => d.dayNumber > 9);
+      const allDays = [...finalDays, ...extraDays];
+
+      setDays(allDays);
+      try {
+        localStorage.setItem('navratri_days_cache', JSON.stringify(allDays));
+      } catch (e) {}
       setLoading(false);
     }, (error) => {
-      console.warn('Navratri snapshot error, using default days:', error);
+      console.warn('Navratri snapshot error, using cached or default days:', error);
       setLoading(false);
     });
 
@@ -63,19 +88,23 @@ export const Navratri: React.FC = () => {
   }, []);
 
   const handleSyncAllDefaults = async () => {
-    if (!confirm('क्या आप सभी 9 दिनों का प्रामाणिक विवरण और तस्वीरें डेटाबेस में सिंक करना चाहते हैं?')) {
+    if (!confirm('चेतावनी: क्या आप सभी 9 दिनों को मूल डिफ़ॉल्ट डेटा में रीसेट करना चाहते हैं? आपके द्वारा किए गए सभी कस्टम बदलाव रीसेट हो जाएंगे।')) {
       return;
     }
     setSyncing(true);
     try {
       for (const day of defaultNavratriDays) {
-        await setDoc(doc(db, 'navratri', `day_${day.dayNumber}`), day, { merge: true });
+        await setDoc(doc(db, 'navratri', `day_${day.dayNumber}`), day);
       }
-      setSyncMessage('सभी 9 दिन सफलतापूर्वक सिंक हो गए हैं!');
+      try {
+        localStorage.setItem('navratri_days_cache', JSON.stringify(defaultNavratriDays));
+      } catch (e) {}
+      setDays(defaultNavratriDays);
+      setSyncMessage('सभी 9 दिन सफलतापूर्वक मूल डिफ़ॉल्ट में रीसेट हो गए हैं!');
       setTimeout(() => setSyncMessage(null), 3500);
     } catch (e) {
       console.error('Sync error:', e);
-      alert('सिंक करने में त्रुटि हुई।');
+      alert('रीसेट करने में त्रुटि हुई।');
     } finally {
       setSyncing(false);
     }
@@ -142,7 +171,7 @@ export const Navratri: React.FC = () => {
             className="inline-flex items-center space-x-1.5 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/50 text-amber-200 px-3.5 py-1.5 rounded-full text-xs font-semibold backdrop-blur-sm transition disabled:opacity-50"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} />
-            <span>{syncing ? 'सिंक हो रहा है...' : 'डिफ़ॉल्ट 9 दिन डेटाबेस में सिंक करें'}</span>
+            <span>{syncing ? 'रीसेट हो रहा है...' : 'मूल डिफ़ॉल्ट में रीसेट करें (Reset Defaults)'}</span>
           </button>
         </div>
 
@@ -364,7 +393,13 @@ export const Navratri: React.FC = () => {
           day={editingDay}
           onClose={() => setEditingDay(null)}
           onSaveSuccess={(updated) => {
-            setDays((prev) => prev.map((d) => d.dayNumber === updated.dayNumber ? updated : d));
+            setDays((prev) => {
+              const next = prev.map((d) => d.dayNumber === updated.dayNumber ? updated : d);
+              try {
+                localStorage.setItem('navratri_days_cache', JSON.stringify(next));
+              } catch (e) {}
+              return next;
+            });
           }}
         />
       )}

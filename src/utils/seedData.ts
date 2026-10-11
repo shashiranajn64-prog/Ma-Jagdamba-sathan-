@@ -205,14 +205,19 @@ export async function initializeDatabaseDefaults() {
     const navratriCol = collection(db, 'navratri');
     const navratriSnap = await getDocs(navratriCol).catch(() => null);
     
-    if (!navratriSnap || navratriSnap.empty || navratriSnap.size < 9) {
+    // Only seed days that do NOT already exist in the database (never overwrite user edits)
+    if (!navratriSnap || navratriSnap.empty) {
       for (const day of defaultNavratriDays) {
-        await setDoc(doc(db, 'navratri', `day_${day.dayNumber}`), day, { merge: true }).catch(() => {});
+        await setDoc(doc(db, 'navratri', `day_${day.dayNumber}`), day).catch(() => {});
       }
     } else {
-      // Ensure existing days have complete katha/mantra/pujanVidhi if missing
+      // If collection exists, only fill in truly missing day numbers - NEVER overwrite existing documents!
+      const existingDocIds = new Set(navratriSnap.docs.map(d => d.id));
       for (const day of defaultNavratriDays) {
-        await setDoc(doc(db, 'navratri', `day_${day.dayNumber}`), day, { merge: true }).catch(() => {});
+        const docId = `day_${day.dayNumber}`;
+        if (!existingDocIds.has(docId)) {
+          await setDoc(doc(db, 'navratri', docId), day).catch(() => {});
+        }
       }
     }
 
