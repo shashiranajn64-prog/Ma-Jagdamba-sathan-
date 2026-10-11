@@ -26,12 +26,51 @@ export const defaultSiteSettings: SiteSettings = {
   whatsappApiKey: ''
 };
 
+export const navratriDeviImagePresets: Record<number, { name: string; url: string }[]> = {
+  1: [
+    { name: 'माँ शैलपुत्री (नंदी सवारी, त्रिशूल व कमल)', url: 'https://images.unsplash.com/photo-1544816155-12df9643f363?auto=format&fit=crop&w=800&q=80' },
+    { name: 'माँ शैलपुत्री दिव्य विग्रह', url: 'https://images.unsplash.com/photo-1609137144881-55010dd21775?auto=format&fit=crop&w=800&q=80' }
+  ],
+  2: [
+    { name: 'माँ ब्रह्मचारिणी (तपस्विनी रूप, जपमाला व कमंडलु)', url: 'https://images.unsplash.com/photo-1609137144881-55010dd21775?auto=format&fit=crop&w=800&q=80' },
+    { name: 'माँ ब्रह्मचारिणी शांत आभा', url: 'https://images.unsplash.com/photo-1544816155-12df9643f363?auto=format&fit=crop&w=800&q=80' }
+  ],
+  3: [
+    { name: 'माँ चंद्रघंटा (स्वर्ण कांति, सिंह सवारी)', url: 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?auto=format&fit=crop&w=800&q=80' },
+    { name: 'माँ चंद्रघंटा अर्धचंद्र स्वरूप', url: 'https://images.unsplash.com/photo-1567157577867-05ccb1388e66?auto=format&fit=crop&w=800&q=80' }
+  ],
+  4: [
+    { name: 'माँ कूष्मांड (अष्टभुजा, ब्रह्मांड रचयिता)', url: 'https://images.unsplash.com/photo-1567157577867-05ccb1388e66?auto=format&fit=crop&w=800&q=80' },
+    { name: 'माँ कूष्मांड दिव्य तेज', url: 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?auto=format&fit=crop&w=800&q=80' }
+  ],
+  5: [
+    { name: 'माँ स्कंदमाता (बाल स्कंद गोद में)', url: 'https://images.unsplash.com/photo-1620619767323-b95a89183081?auto=format&fit=crop&w=800&q=80' },
+    { name: 'माँ स्कंदमाता वात्सल्य रूप', url: 'https://images.unsplash.com/photo-1544816155-12df9643f363?auto=format&fit=crop&w=800&q=80' }
+  ],
+  6: [
+    { name: 'माँ कात्यायनी (महिषासुरमर्दिनी स्वरूप)', url: 'https://images.unsplash.com/photo-1599818816934-2e555938f32c?auto=format&fit=crop&w=800&q=80' },
+    { name: 'माँ कात्यायनी सिंह वाहिनी', url: 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?auto=format&fit=crop&w=800&q=80' }
+  ],
+  7: [
+    { name: 'माँ कालरात्रि (शुभंकरी, अंधकार विनाशिनी)', url: 'https://images.unsplash.com/photo-1563245372-f21724e3856d?auto=format&fit=crop&w=800&q=80' },
+    { name: 'माँ कालरात्रि महाकाली स्वरूप', url: 'https://images.unsplash.com/photo-1599818816934-2e555938f32c?auto=format&fit=crop&w=800&q=80' }
+  ],
+  8: [
+    { name: 'माँ महागौरी (श्वेत वस्त्रा, महाष्टमी)', url: 'https://images.unsplash.com/photo-1614741118887-7a4ee193a5fa?auto=format&fit=crop&w=800&q=80' },
+    { name: 'माँ महागौरी शांत रूप', url: 'https://images.unsplash.com/photo-1620619767323-b95a89183081?auto=format&fit=crop&w=800&q=80' }
+  ],
+  9: [
+    { name: 'माँ सिद्धिदात्री (कमलासन, सर्व सिद्धिदात्री)', url: 'https://images.unsplash.com/photo-1608555895856-07e3a35a5a1f?auto=format&fit=crop&w=800&q=80' },
+    { name: 'माँ सिद्धिदात्री नवमी विग्रह', url: 'https://images.unsplash.com/photo-1614741118887-7a4ee193a5fa?auto=format&fit=crop&w=800&q=80' }
+  ]
+};
+
 export const defaultNavratriDays: NavratriDay[] = [
   {
     dayNumber: 1,
     deviName: 'माँ शैलपुत्री',
     date: 'प्रतिपदा (प्रथम दिन)',
-    imageUrl: 'https://images.unsplash.com/photo-1609137144881-55010dd21775?auto=format&fit=crop&w=600&q=80',
+    imageUrl: 'https://images.unsplash.com/photo-1544816155-12df9643f363?auto=format&fit=crop&w=800&q=80',
     pujaDetails: 'घटस्थापना (कलश स्थापना), शैलपुत्री पूजन व माँ को सफेद वस्त्र अर्पण।',
     timing: 'प्रातः 05:00 बजे से सायं 08:00 बजे तक',
     bhogPrasad: 'गाय का शुद्ध घी व मिष्ठान्न',
@@ -45,7 +84,7 @@ export const defaultNavratriDays: NavratriDay[] = [
     dayNumber: 2,
     deviName: 'माँ ब्रह्मचारिणी',
     date: 'द्वितीया (दूसरा दिन)',
-    imageUrl: 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?auto=format&fit=crop&w=600&q=80',
+    imageUrl: 'https://images.unsplash.com/photo-1609137144881-55010dd21775?auto=format&fit=crop&w=800&q=80',
     pujaDetails: 'ब्रह्मचारिणी स्वरूप पूजन, जप व तप अनुष्ठान।',
     timing: 'प्रातः 05:30 बजे से सायं 08:00 बजे तक',
     bhogPrasad: 'शक्कर एवं पंचामृत',
@@ -59,7 +98,7 @@ export const defaultNavratriDays: NavratriDay[] = [
     dayNumber: 3,
     deviName: 'माँ चंद्रघंटा',
     date: 'तृतीया (तीसरा दिन)',
-    imageUrl: 'https://images.unsplash.com/photo-1567157577867-05ccb1388e66?auto=format&fit=crop&w=600&q=80',
+    imageUrl: 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?auto=format&fit=crop&w=800&q=80',
     pujaDetails: 'चंद्रघंटा देवी का अभिषेक व घंटा नाद के साथ मंगल आरती।',
     timing: 'प्रातः 05:30 बजे से सायं 08:00 बजे तक',
     bhogPrasad: 'दूध व खीर का भोग',
@@ -73,7 +112,7 @@ export const defaultNavratriDays: NavratriDay[] = [
     dayNumber: 4,
     deviName: 'माँ कूष्मांड',
     date: 'चतुर्थी (चौथा दिन)',
-    imageUrl: 'https://images.unsplash.com/photo-1609137144881-55010dd21775?auto=format&fit=crop&w=600&q=80',
+    imageUrl: 'https://images.unsplash.com/photo-1567157577867-05ccb1388e66?auto=format&fit=crop&w=800&q=80',
     pujaDetails: 'कूष्मांड माता की पूजा, कुष्मांडा अर्चना व दीप प्रज्वलन।',
     timing: 'प्रातः 05:30 बजे से सायं 08:00 बजे तक',
     bhogPrasad: 'मालपुए व मौसमी फल',
@@ -87,7 +126,7 @@ export const defaultNavratriDays: NavratriDay[] = [
     dayNumber: 5,
     deviName: 'माँ स्कंदमाता',
     date: 'पञ्चमी (पाँचवा दिन)',
-    imageUrl: 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?auto=format&fit=crop&w=600&q=80',
+    imageUrl: 'https://images.unsplash.com/photo-1620619767323-b95a89183081?auto=format&fit=crop&w=800&q=80',
     pujaDetails: 'भगवान कार्तिकेय की माता स्कंदमाता का पूजन।',
     timing: 'प्रातः 05:30 बजे से सायं 08:00 बजे तक',
     bhogPrasad: 'केला व पीले मिष्ठान्न',
@@ -101,7 +140,7 @@ export const defaultNavratriDays: NavratriDay[] = [
     dayNumber: 6,
     deviName: 'माँ कात्यायनी',
     date: 'षष्ठी (छठा दिन)',
-    imageUrl: 'https://images.unsplash.com/photo-1567157577867-05ccb1388e66?auto=format&fit=crop&w=600&q=80',
+    imageUrl: 'https://images.unsplash.com/photo-1599818816934-2e555938f32c?auto=format&fit=crop&w=800&q=80',
     pujaDetails: 'महर्षि कात्यायन की पुत्री माँ कात्यायनी का विशेष श्रृंगार व अर्चन।',
     timing: 'प्रातः 05:30 बजे से सायं 08:30 बजे तक',
     bhogPrasad: 'मधु (शहद) युक्त पान व फल',
@@ -115,7 +154,7 @@ export const defaultNavratriDays: NavratriDay[] = [
     dayNumber: 7,
     deviName: 'माँ कालरात्रि',
     date: 'सप्तमी (सातवाँ दिन)',
-    imageUrl: 'https://images.unsplash.com/photo-1609137144881-55010dd21775?auto=format&fit=crop&w=600&q=80',
+    imageUrl: 'https://images.unsplash.com/photo-1563245372-f21724e3856d?auto=format&fit=crop&w=800&q=80',
     pujaDetails: 'रात्रि कालीन महापूजा, कालरात्रि होम एवं तांत्रिक साधना।',
     timing: 'प्रातः 05:00 बजे से रात्रि 10:00 बजे तक',
     bhogPrasad: 'गुड़ व तिल्ली के व्यंजन',
@@ -129,7 +168,7 @@ export const defaultNavratriDays: NavratriDay[] = [
     dayNumber: 8,
     deviName: 'माँ महागौरी',
     date: 'अष्टमी (आठवाँ दिन)',
-    imageUrl: 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?auto=format&fit=crop&w=600&q=80',
+    imageUrl: 'https://images.unsplash.com/photo-1614741118887-7a4ee193a5fa?auto=format&fit=crop&w=800&q=80',
     pujaDetails: 'महाष्टमी पूजन, विशाल कन्या भोज एवं हवन महायज्ञ।',
     timing: 'प्रातः 04:30 बजे से रात्रि 09:00 बजे तक',
     bhogPrasad: 'हलवा, पूरी और चना',
@@ -143,7 +182,7 @@ export const defaultNavratriDays: NavratriDay[] = [
     dayNumber: 9,
     deviName: 'माँ सिद्धिदात्री',
     date: 'नवमी (नौवाँ दिन)',
-    imageUrl: 'https://images.unsplash.com/photo-1567157577867-05ccb1388e66?auto=format&fit=crop&w=600&q=80',
+    imageUrl: 'https://images.unsplash.com/photo-1608555895856-07e3a35a5a1f?auto=format&fit=crop&w=800&q=80',
     pujaDetails: 'पूर्णाहुति हवन, कन्या पूजन व सिंदूर खेला उत्सव।',
     timing: 'प्रातः 04:30 बजे से सायं 09:00 बजे तक',
     bhogPrasad: 'खीर, पूरी और नारियल',

@@ -3,6 +3,7 @@ import { collection, query, where, orderBy, limit, onSnapshot } from 'firebase/f
 import { db } from '../firebase/config';
 import { SiteSettings, Notice, GalleryItem, NavratriDay } from '../types';
 import { Ticker } from '../components/Ticker';
+import { defaultNavratriDays } from '../utils/seedData';
 import { Heart, Calendar, Image as ImageIcon, Bell, MapPin, Phone, ArrowRight, ShieldCheck, Sparkles } from 'lucide-react';
 
 interface HomeProps {
@@ -13,7 +14,7 @@ interface HomeProps {
 export const Home: React.FC<HomeProps> = ({ settings, setCurrentTab }) => {
   const [notices, setNotices] = useState<Notice[]>([]);
   const [galleryPreviews, setGalleryPreviews] = useState<GalleryItem[]>([]);
-  const [navratriDays, setNavratriDays] = useState<NavratriDay[]>([]);
+  const [navratriDays, setNavratriDays] = useState<NavratriDay[]>(defaultNavratriDays.slice(0, 3));
 
   useEffect(() => {
     const noticesQuery = query(collection(db, 'notices'), where('isActive', '==', true), orderBy('createdAt', 'desc'), limit(5));
@@ -35,7 +36,12 @@ export const Home: React.FC<HomeProps> = ({ settings, setCurrentTab }) => {
       const list: NavratriDay[] = [];
       snapshot.forEach((doc) => list.push(doc.data() as NavratriDay));
       list.sort((a, b) => a.dayNumber - b.dayNumber);
-      setNavratriDays(list.slice(0, 3));
+      if (list.length > 0) {
+        const merged = defaultNavratriDays.map(def => list.find(d => d.dayNumber === def.dayNumber) || def);
+        setNavratriDays(merged.slice(0, 3));
+      } else {
+        setNavratriDays(defaultNavratriDays.slice(0, 3));
+      }
     });
 
     return () => {

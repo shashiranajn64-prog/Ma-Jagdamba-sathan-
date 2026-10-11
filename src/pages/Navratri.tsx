@@ -1,22 +1,29 @@
 import React, { useEffect, useState } from 'react';
-import { collection, query, onSnapshot } from 'firebase/firestore';
+import { collection, query, onSnapshot, doc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { NavratriDay } from '../types';
 import { defaultNavratriDays } from '../utils/seedData';
-import { Sparkles, Clock, Gift, Award, BookOpen, Volume2, VolumeX, Scroll, Flame, CheckCircle, Info } from 'lucide-react';
+import { NavratriEditModal } from '../components/NavratriEditModal';
+import { 
+  Sparkles, Clock, Gift, Award, BookOpen, Volume2, VolumeX, Scroll, Flame, 
+  Edit, RefreshCw, CheckCircle, Shield, ChevronRight 
+} from 'lucide-react';
 
 export const Navratri: React.FC = () => {
   const [days, setDays] = useState<NavratriDay[]>(defaultNavratriDays);
   const [loading, setLoading] = useState(false);
   const [speakingDay, setSpeakingDay] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<'all' | number>('all');
+  const [editingDay, setEditingDay] = useState<NavratriDay | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
   useEffect(() => {
     const q = query(collection(db, 'navratri'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const list: NavratriDay[] = [];
-      snapshot.forEach((doc) => {
-        const data = doc.data() as NavratriDay;
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data() as NavratriDay;
         // Enrich with default katha, mantra, and pujan vidhi if missing
         if (!data.katha) {
           data.katha = getDefaultKatha(data.dayNumber, data.deviName);
@@ -30,8 +37,16 @@ export const Navratri: React.FC = () => {
         list.push(data);
       });
       list.sort((a, b) => a.dayNumber - b.dayNumber);
+
+      // Merge with defaultNavratriDays if fewer than 9 days in DB
       if (list.length > 0) {
-        setDays(list);
+        const fullList: NavratriDay[] = defaultNavratriDays.map((defDay) => {
+          const found = list.find((d) => d.dayNumber === defDay.dayNumber);
+          return found || defDay;
+        });
+        setDays(fullList);
+      } else {
+        setDays(defaultNavratriDays);
       }
       setLoading(false);
     }, (error) => {
@@ -46,6 +61,25 @@ export const Navratri: React.FC = () => {
       }
     };
   }, []);
+
+  const handleSyncAllDefaults = async () => {
+    if (!confirm('क्या आप सभी 9 दिनों का प्रामाणिक विवरण और तस्वीरें डेटाबेस में सिंक करना चाहते हैं?')) {
+      return;
+    }
+    setSyncing(true);
+    try {
+      for (const day of defaultNavratriDays) {
+        await setDoc(doc(db, 'navratri', `day_${day.dayNumber}`), day, { merge: true });
+      }
+      setSyncMessage('सभी 9 दिन सफलतापूर्वक सिंक हो गए हैं!');
+      setTimeout(() => setSyncMessage(null), 3500);
+    } catch (e) {
+      console.error('Sync error:', e);
+      alert('सिंक करने में त्रुटि हुई।');
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   const handleSpeak = (day: NavratriDay) => {
     if (!('speechSynthesis' in window)) {
@@ -81,43 +115,67 @@ export const Navratri: React.FC = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-10">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-8 sm:space-y-10">
       
       {/* Top Header */}
-      <div className="text-center space-y-3 bg-gradient-to-r from-[#4a0000] via-red-900 to-[#4a0000] text-amber-50 p-8 rounded-3xl shadow-2xl border-2 border-[#ff7a00]">
-        <div className="inline-flex items-center space-x-2 bg-[#ff7a00] text-red-950 px-4 py-1.5 rounded-full text-sm font-bold shadow">
+      <div className="text-center space-y-4 bg-gradient-to-r from-[#4a0000] via-red-900 to-[#4a0000] text-amber-50 p-6 sm:p-10 rounded-3xl shadow-2xl border-2 border-[#ff7a00] relative overflow-hidden">
+        <div className="inline-flex items-center space-x-2 bg-[#ff7a00] text-red-950 px-4 py-1.5 rounded-full text-xs sm:text-sm font-bold shadow">
           <Sparkles className="w-4 h-4 fill-red-950" />
           <span>पवित्र चैत्र एवं शारदीय नवरात्रि</span>
         </div>
-        <h1 className="text-3xl sm:text-5xl font-bold font-serif text-amber-200">नवरात्रि – 9 दिन विशेष कथा, मंत्र एवं पूजा विधान</h1>
-        <p className="max-w-3xl mx-auto text-amber-100/90 text-sm sm:text-base">
-          माता दुर्गा के नौ स्वरूपों की पौराणिक कथाएँ, पावन मंत्र, स्टेप-बाय-स्टेप पूजा विधि और AI वॉइस (ऑडियो) श्रवण की सुविधा।
+        
+        <h1 className="text-2xl sm:text-4xl lg:text-5xl font-bold font-serif text-amber-200">
+          नवरात्रि – 9 दिन विशेष कथा, मंत्र एवं पूजा विधान
+        </h1>
+        
+        <p className="max-w-3xl mx-auto text-amber-100/90 text-xs sm:text-base leading-relaxed">
+          माता दुर्गा के नौ पावन स्वरूपों की कथाएँ, सिद्ध मंत्र, स्टेप-बाय-स्टेप पूजा विधि और AI वॉइस श्रवण। 
+          आप किसी भी दिन का विवरण और तस्वीर कभी भी संपादित (Edit) कर सकते हैं।
         </p>
+
+        {/* Sync / Management Bar */}
+        <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
+          <button
+            type="button"
+            onClick={handleSyncAllDefaults}
+            disabled={syncing}
+            className="inline-flex items-center space-x-1.5 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/50 text-amber-200 px-3.5 py-1.5 rounded-full text-xs font-semibold backdrop-blur-sm transition disabled:opacity-50"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} />
+            <span>{syncing ? 'सिंक हो रहा है...' : 'डिफ़ॉल्ट 9 दिन डेटाबेस में सिंक करें'}</span>
+          </button>
+        </div>
+
+        {syncMessage && (
+          <div className="mt-2 inline-block bg-emerald-600/90 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow">
+            {syncMessage}
+          </div>
+        )}
       </div>
 
       {/* Filter Tabs */}
-      <div className="flex flex-wrap justify-center gap-2">
+      <div className="flex flex-wrap justify-center gap-1.5 sm:gap-2">
         <button
           onClick={() => setActiveTab('all')}
-          className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition shadow ${
+          className={`px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition shadow ${
             activeTab === 'all'
               ? 'bg-[#4a0000] text-amber-200 border-2 border-[#ff7a00]'
-              : 'bg-white text-stone-700 hover:bg-amber-50 border'
+              : 'bg-white text-stone-700 hover:bg-amber-50 border border-amber-200'
           }`}
         >
           सभी 9 रूप (All Days)
         </button>
-        {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+        {days.map((d) => (
           <button
-            key={num}
-            onClick={() => setActiveTab(num)}
-            className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition shadow ${
-              activeTab === num
+            key={d.dayNumber}
+            onClick={() => setActiveTab(d.dayNumber)}
+            className={`px-2.5 sm:px-3 py-2 rounded-xl text-xs sm:text-sm font-bold transition shadow ${
+              activeTab === d.dayNumber
                 ? 'bg-[#ff7a00] text-red-950 border-2 border-[#4a0000]'
-                : 'bg-white text-stone-700 hover:bg-amber-50 border'
+                : 'bg-white text-stone-700 hover:bg-amber-50 border border-amber-200'
             }`}
           >
-            दिन {num}
+            दिन {d.dayNumber}
           </button>
         ))}
       </div>
@@ -125,70 +183,117 @@ export const Navratri: React.FC = () => {
       {loading ? (
         <div className="text-center py-20 text-stone-500 font-medium text-lg">नवरात्रि विवरण लोड हो रहा है...</div>
       ) : (
-        <div className="space-y-12">
+        <div className="space-y-10 sm:space-y-12">
           {days
             .filter((d) => activeTab === 'all' || d.dayNumber === activeTab)
             .map((day) => (
               <div
                 key={day.dayNumber}
-                className="bg-white rounded-3xl shadow-2xl border-2 border-amber-300 overflow-hidden grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch"
+                className="bg-white rounded-3xl shadow-2xl border-2 border-amber-300 overflow-hidden grid grid-cols-1 lg:grid-cols-12 gap-0 items-stretch"
               >
                 {/* Left Image & Quick Info */}
-                <div className="lg:col-span-4 relative min-h-[300px] lg:min-h-full">
+                <div className="lg:col-span-5 relative min-h-[320px] sm:min-h-[380px] lg:min-h-full bg-stone-900">
                   <img
                     src={day.imageUrl}
                     alt={day.deviName}
+                    referrerPolicy="no-referrer"
+                    onError={(e) => {
+                      // Fallback image if broken
+                      (e.target as HTMLImageElement).src = defaultNavratriDays[day.dayNumber - 1]?.imageUrl || 'https://images.unsplash.com/photo-1544816155-12df9643f363?auto=format&fit=crop&w=800&q=80';
+                    }}
                     className="w-full h-full object-cover"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex flex-col justify-between p-6 text-white">
-                    <div className="flex justify-between items-start">
-                      <span className="bg-[#4a0000] text-amber-300 font-bold px-4 py-1.5 rounded-full text-sm shadow-md border border-[#ff7a00]">
+                  
+                  {/* Overlay gradient and action buttons */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-black/60 flex flex-col justify-between p-5 sm:p-6 text-white">
+                    <div className="flex justify-between items-start gap-2">
+                      <span className="bg-[#4a0000] text-amber-300 font-bold px-3.5 py-1.5 rounded-full text-xs sm:text-sm shadow-md border border-[#ff7a00]">
                         दिन {day.dayNumber} — {day.date}
                       </span>
-                      <button
-                        type="button"
-                        onClick={() => handleSpeak(day)}
-                        className={`p-3 rounded-full shadow-lg transition flex items-center space-x-1.5 text-xs font-bold ${
-                          speakingDay === day.dayNumber
-                            ? 'bg-emerald-600 text-white animate-pulse'
-                            : 'bg-[#ff7a00] text-red-950 hover:bg-amber-500'
-                        }`}
-                        title="AI Voice (ऑडियो सुनें)"
-                      >
-                        {speakingDay === day.dayNumber ? (
-                          <>
-                            <VolumeX className="w-5 h-5" />
-                            <span>रोकें</span>
-                          </>
-                        ) : (
-                          <>
-                            <Volume2 className="w-5 h-5" />
-                            <span>कथा सुनें</span>
-                          </>
-                        )}
-                      </button>
+                      
+                      <div className="flex items-center space-x-2">
+                        {/* Edit Button */}
+                        <button
+                          type="button"
+                          onClick={() => setEditingDay(day)}
+                          className="bg-amber-500 hover:bg-amber-600 text-red-950 font-bold px-3 py-1.5 rounded-full text-xs shadow-lg flex items-center space-x-1 transition transform active:scale-95"
+                          title="संपादित करें (Edit)"
+                        >
+                          <Edit className="w-3.5 h-3.5" />
+                          <span>एडिट</span>
+                        </button>
+
+                        {/* Audio Speak Button */}
+                        <button
+                          type="button"
+                          onClick={() => handleSpeak(day)}
+                          className={`p-2 sm:px-3 sm:py-1.5 rounded-full shadow-lg transition flex items-center space-x-1 text-xs font-bold ${
+                            speakingDay === day.dayNumber
+                              ? 'bg-emerald-600 text-white animate-pulse'
+                              : 'bg-red-900/90 hover:bg-red-800 text-amber-200 border border-amber-400'
+                          }`}
+                          title="AI Voice (ऑडियो सुनें)"
+                        >
+                          {speakingDay === day.dayNumber ? (
+                            <>
+                              <VolumeX className="w-4 h-4" />
+                              <span className="hidden sm:inline">रोकें</span>
+                            </>
+                          ) : (
+                            <>
+                              <Volume2 className="w-4 h-4" />
+                              <span className="hidden sm:inline">कथा सुनें</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
                     </div>
 
-                    <div>
-                      <h2 className="text-3xl font-bold font-serif text-amber-200">{day.deviName}</h2>
-                      <p className="text-xs text-amber-100/80">माँ जगदम्बा स्थान, मथुरापुर, मुजफ्फरपुर, 843119</p>
+                    <div className="space-y-1">
+                      <div className="inline-block bg-amber-500/30 text-amber-200 px-2.5 py-0.5 rounded text-[10px] font-bold tracking-widest uppercase">
+                        नवदुर्गा स्वरूप #{day.dayNumber}
+                      </div>
+                      <h2 className="text-2xl sm:text-4xl font-bold font-serif text-amber-200 drop-shadow">
+                        {day.deviName}
+                      </h2>
+                      <p className="text-xs text-amber-100/90 font-medium">
+                        सिद्धपीठ माँ जगदम्बा स्थान, मथुरापुर
+                      </p>
                     </div>
                   </div>
                 </div>
 
                 {/* Right Content: Description, Katha, Mantra, Puja Vidhi */}
-                <div className="lg:col-span-8 p-6 sm:p-8 space-y-6 flex flex-col justify-between">
+                <div className="lg:col-span-7 p-6 sm:p-8 space-y-6 flex flex-col justify-between bg-white">
                   <div className="space-y-4">
-                    <p className="text-stone-700 leading-relaxed text-base font-medium">{day.description}</p>
+                    
+                    {/* Header bar on card with Edit quick-link */}
+                    <div className="flex justify-between items-center border-b border-amber-200/80 pb-3">
+                      <span className="text-xs font-bold text-amber-900 bg-amber-50 px-2.5 py-1 rounded-md border border-amber-200">
+                        {day.date}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setEditingDay(day)}
+                        className="text-xs text-amber-800 hover:text-red-900 font-bold flex items-center space-x-1 underline decoration-amber-400"
+                      >
+                        <Edit className="w-3 h-3" />
+                        <span>विवरण / फोटो बदलें (Edit)</span>
+                      </button>
+                    </div>
+
+                    <p className="text-stone-700 leading-relaxed text-sm sm:text-base font-medium">
+                      {day.description}
+                    </p>
 
                     {/* Mantra Box */}
                     {day.mantra && (
                       <div className="bg-amber-50 p-4 rounded-2xl border-2 border-amber-400/70 space-y-1 shadow-inner">
-                        <div className="flex items-center space-x-2 text-red-950 font-bold text-sm">
+                        <div className="flex items-center space-x-2 text-red-950 font-bold text-xs sm:text-sm">
                           <Flame className="w-4 h-4 text-[#ff7a00]" />
                           <span>सिद्ध मंत्र (Mantra)</span>
                         </div>
-                        <p className="font-serif italic text-red-900 text-base sm:text-lg font-bold">
+                        <p className="font-serif italic text-red-900 text-sm sm:text-base font-bold">
                           "{day.mantra}"
                         </p>
                       </div>
@@ -196,12 +301,12 @@ export const Navratri: React.FC = () => {
 
                     {/* Pauranik Katha */}
                     {day.katha && (
-                      <div className="bg-stone-50 p-5 rounded-2xl border border-stone-200 space-y-2">
-                        <div className="flex items-center space-x-2 text-[#4a0000] font-bold text-base">
-                          <Scroll className="w-5 h-5 text-[#ff7a00]" />
+                      <div className="bg-stone-50 p-4 sm:p-5 rounded-2xl border border-stone-200 space-y-2">
+                        <div className="flex items-center space-x-2 text-[#4a0000] font-bold text-sm sm:text-base">
+                          <Scroll className="w-4 h-4 text-[#ff7a00]" />
                           <span>पौराणिक कथा (Mythological Katha)</span>
                         </div>
-                        <p className="text-stone-700 text-sm leading-relaxed whitespace-pre-line">
+                        <p className="text-stone-700 text-xs sm:text-sm leading-relaxed whitespace-pre-line">
                           {day.katha}
                         </p>
                       </div>
@@ -209,12 +314,12 @@ export const Navratri: React.FC = () => {
 
                     {/* Pujan Vidhi */}
                     {day.pujanVidhi && (
-                      <div className="bg-red-950 text-amber-50 p-5 rounded-2xl space-y-2 shadow">
-                        <div className="flex items-center space-x-2 text-amber-300 font-bold text-base">
-                          <BookOpen className="w-5 h-5 text-[#ff7a00]" />
+                      <div className="bg-red-950 text-amber-50 p-4 sm:p-5 rounded-2xl space-y-2 shadow">
+                        <div className="flex items-center space-x-2 text-amber-300 font-bold text-sm sm:text-base">
+                          <BookOpen className="w-4 h-4 text-[#ff7a00]" />
                           <span>विशेष पूजन विधि (Step-by-Step Puja Vidhi)</span>
                         </div>
-                        <p className="text-amber-100/90 text-sm leading-relaxed whitespace-pre-line">
+                        <p className="text-amber-100/90 text-xs sm:text-sm leading-relaxed whitespace-pre-line">
                           {day.pujanVidhi}
                         </p>
                       </div>
@@ -222,35 +327,46 @@ export const Navratri: React.FC = () => {
                   </div>
 
                   {/* Bottom Grid for Timing, Bhog, Special Program */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 border-t border-amber-100">
-                    <div className="bg-amber-50/70 p-3.5 rounded-xl border border-amber-200/60 space-y-1">
-                      <div className="flex items-center space-x-2 text-red-900 font-bold text-xs">
-                        <Clock className="w-4 h-4 text-amber-600" />
-                        <span>पूजा समय (Timing)</span>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-4 border-t border-amber-100">
+                    <div className="bg-amber-50/70 p-3 rounded-xl border border-amber-200/60 space-y-1">
+                      <div className="flex items-center space-x-1.5 text-red-900 font-bold text-xs">
+                        <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                        <span>पूजा समय</span>
                       </div>
-                      <p className="text-xs text-stone-700">{day.timing}</p>
+                      <p className="text-xs text-stone-700 leading-tight">{day.timing}</p>
                     </div>
 
-                    <div className="bg-amber-50/70 p-3.5 rounded-xl border border-amber-200/60 space-y-1">
-                      <div className="flex items-center space-x-2 text-red-900 font-bold text-xs">
-                        <Gift className="w-4 h-4 text-amber-600" />
-                        <span>भोग प्रसाद (Bhog)</span>
+                    <div className="bg-amber-50/70 p-3 rounded-xl border border-amber-200/60 space-y-1">
+                      <div className="flex items-center space-x-1.5 text-red-900 font-bold text-xs">
+                        <Gift className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                        <span>भोग प्रसाद</span>
                       </div>
-                      <p className="text-xs text-stone-700">{day.bhogPrasad}</p>
+                      <p className="text-xs text-stone-700 leading-tight">{day.bhogPrasad}</p>
                     </div>
 
-                    <div className="bg-amber-50/70 p-3.5 rounded-xl border border-amber-200/60 space-y-1">
-                      <div className="flex items-center space-x-2 text-red-900 font-bold text-xs">
-                        <Award className="w-4 h-4 text-amber-600" />
+                    <div className="bg-amber-50/70 p-3 rounded-xl border border-amber-200/60 space-y-1">
+                      <div className="flex items-center space-x-1.5 text-red-900 font-bold text-xs">
+                        <Award className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                         <span>विशेष कार्यक्रम</span>
                       </div>
-                      <p className="text-xs text-stone-700">{day.specialProgram}</p>
+                      <p className="text-xs text-stone-700 leading-tight">{day.specialProgram}</p>
                     </div>
                   </div>
                 </div>
               </div>
             ))}
         </div>
+      )}
+
+      {/* Edit Modal */}
+      {editingDay && (
+        <NavratriEditModal
+          day={editingDay}
+          onClose={() => setEditingDay(null)}
+          onSaveSuccess={(updated) => {
+            setDays((prev) => prev.map((d) => d.dayNumber === updated.dayNumber ? updated : d));
+          }}
+        />
       )}
 
     </div>
@@ -289,7 +405,7 @@ function getDefaultMantra(dayNumber: number, name: string): string {
     case 1:
       return 'ॐ देवी शैलपुत्र्यै नमः';
     case 2:
-      return 'ॐ देवी ब्रह्मचारিণ्ये नमः';
+      return 'ॐ देवी ब्रह्मचारिण्यै नमः';
     case 3:
       return 'ॐ देवी चंद्रघण्टायै नमः';
     case 4:

@@ -11,6 +11,8 @@ import {
 import { ReceiptModal } from '../components/ReceiptModal';
 import { ImageUpload } from '../components/ImageUpload';
 import { StaffIdCardModal } from '../components/StaffIdCardModal';
+import { NavratriEditModal } from '../components/NavratriEditModal';
+import { defaultNavratriDays } from '../utils/seedData';
 
 interface AdminDashboardProps {
   onLogout: () => void;
@@ -27,6 +29,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, settin
   const [navratriDays, setNavratriDays] = useState<NavratriDay[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [settings, setSettings] = useState<SiteSettings>(initialSettings);
+  const [selectedNavratriDayForEdit, setSelectedNavratriDayForEdit] = useState<NavratriDay | null>(null);
+  const [navratriSyncing, setNavratriSyncing] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
@@ -837,36 +841,107 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, settin
         </div>
       )}
 
-      {activeTab === 'navratri' && (
-        <div className="bg-white rounded-2xl shadow-xl border border-amber-200 p-6 space-y-6">
-          <h3 className="font-bold font-serif text-red-950 text-xl">नवरात्रि 9 दिन सामग्री प्रबंधन (Navratri CMS)</h3>
-          <p className="text-xs text-stone-500">सभी 9 दिनों की देवी, पूजा विधि और समय सारणी यहाँ संपादित की जा सकती है।</p>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {navratriDays.map((day) => (
-              <div key={day.dayNumber} className="border border-amber-200 rounded-xl p-4 space-y-2 bg-amber-50/30">
-                <div className="flex justify-between items-center">
-                  <span className="bg-red-900 text-amber-300 text-xs font-bold px-2.5 py-1 rounded">दिन {day.dayNumber}</span>
-                  <span className="text-xs text-stone-500">{day.date}</span>
-                </div>
-                <h4 className="font-bold font-serif text-red-950 text-lg">{day.deviName}</h4>
-                <p className="text-xs text-stone-600 line-clamp-2">{day.description}</p>
-                <button
-                  onClick={async () => {
-                    const newDesc = prompt('नया विवरण दर्ज करें:', day.description);
-                    if (newDesc) {
-                      await setDoc(doc(db, 'navratri', `day_${day.dayNumber}`), { ...day, description: newDesc });
-                      alert('अपडेट हो गया!');
-                    }
-                  }}
-                  className="w-full bg-amber-600 text-red-950 font-bold py-1.5 rounded text-xs shadow"
-                >
-                  संपादित करें (Edit)
-                </button>
+      {activeTab === 'navratri' && (() => {
+        const displayNavratriDays = defaultNavratriDays.map((defDay) => {
+          const found = navratriDays.find((d) => d.dayNumber === defDay.dayNumber);
+          return found || defDay;
+        });
+
+        const handleSyncNavratriDays = async () => {
+          if (!confirm('क्या आप सभी 9 दिनों का प्रामाणिक विवरण और तस्वीरें डेटाबेस में सिंक करना चाहते हैं?')) return;
+          setNavratriSyncing(true);
+          try {
+            for (const day of defaultNavratriDays) {
+              await setDoc(doc(db, 'navratri', `day_${day.dayNumber}`), day, { merge: true });
+            }
+            await logAudit('SYNC_NAVRATRI', 'सभी 9 नवरात्रि दिन डेटाबेस में सिंक किए गए');
+            alert('सभी 9 दिन सफलतापूर्वक सिंक हो गए हैं!');
+          } catch (e) {
+            console.error('Navratri sync error:', e);
+            alert('सिंक करने में त्रुटि हुई।');
+          } finally {
+            setNavratriSyncing(false);
+          }
+        };
+
+        return (
+          <div className="bg-white rounded-2xl shadow-xl border border-amber-200 p-6 space-y-6">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-amber-100 pb-4">
+              <div>
+                <h3 className="font-bold font-serif text-red-950 text-xl">नवरात्रि 9 दिन सामग्री प्रबंधन (Navratri CMS)</h3>
+                <p className="text-xs text-stone-500">सभी 9 दिनों की देवी, पावन तस्वीरें, कथा, मंत्र, पूजा विधि और समय सारणी यहाँ पूरी तरह से संपादित की जा सकती है।</p>
               </div>
-            ))}
+              <button
+                type="button"
+                onClick={handleSyncNavratriDays}
+                disabled={navratriSyncing}
+                className="bg-amber-600 hover:bg-amber-700 text-red-950 font-bold px-4 py-2 rounded-xl text-xs flex items-center space-x-1.5 shadow transition disabled:opacity-50 shrink-0"
+              >
+                <span>{navratriSyncing ? 'सिंक हो रहा है...' : 'डिफ़ॉल्ट 9 दिन सिंक करें'}</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {displayNavratriDays.map((day) => (
+                <div key={day.dayNumber} className="border border-amber-200 rounded-2xl overflow-hidden bg-amber-50/20 shadow-md flex flex-col justify-between">
+                  <div className="relative h-44 bg-stone-900 overflow-hidden">
+                    <img 
+                      src={day.imageUrl} 
+                      alt={day.deviName} 
+                      referrerPolicy="no-referrer"
+                      className="w-full h-full object-cover" 
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30 p-3 flex flex-col justify-between text-white">
+                      <div className="flex justify-between items-center">
+                        <span className="bg-red-900 text-amber-200 text-xs font-bold px-2.5 py-0.5 rounded-full border border-amber-400">
+                          दिन {day.dayNumber}
+                        </span>
+                        <span className="text-[11px] font-semibold text-amber-100">{day.date}</span>
+                      </div>
+                      <h4 className="font-bold font-serif text-lg text-amber-200 drop-shadow">{day.deviName}</h4>
+                    </div>
+                  </div>
+
+                  <div className="p-4 space-y-3 flex-1 flex flex-col justify-between">
+                    <div className="space-y-2">
+                      {day.mantra && (
+                        <p className="text-xs font-serif italic text-red-900 font-bold bg-amber-100/60 p-2 rounded-lg border border-amber-300/60 line-clamp-1">
+                          "{day.mantra}"
+                        </p>
+                      )}
+                      <p className="text-xs text-stone-600 line-clamp-2 leading-relaxed">{day.description}</p>
+                      <div className="text-[11px] text-stone-500 space-y-0.5 pt-1 border-t border-stone-200">
+                        <p><span className="font-bold text-stone-700">भोग:</span> {day.bhogPrasad}</p>
+                        <p><span className="font-bold text-stone-700">समय:</span> {day.timing}</p>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setSelectedNavratriDayForEdit(day)}
+                      className="w-full mt-3 bg-red-900 hover:bg-red-950 text-amber-200 font-bold py-2 rounded-xl text-xs flex items-center justify-center space-x-1.5 shadow transition"
+                    >
+                      <Edit className="w-3.5 h-3.5" />
+                      <span>संपादित करें (Edit Details & Photo)</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {selectedNavratriDayForEdit && (
+              <NavratriEditModal
+                day={selectedNavratriDayForEdit}
+                onClose={() => setSelectedNavratriDayForEdit(null)}
+                onSaveSuccess={(updated) => {
+                  setNavratriDays((prev) => prev.map((d) => d.dayNumber === updated.dayNumber ? updated : d));
+                  logAudit('UPDATE_NAVRATRI_DAY', `दिन ${updated.dayNumber} (${updated.deviName}) का विवरण अपडेट किया गया`, `day_${updated.dayNumber}`);
+                }}
+              />
+            )}
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {activeTab === 'upi' && (
         <div className="max-w-2xl mx-auto bg-white rounded-2xl shadow-xl border border-amber-200 p-8 space-y-6">
